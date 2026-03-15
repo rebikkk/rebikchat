@@ -2,7 +2,7 @@
 // ВАЖНО: Замени эти значения на свои из Firebase Console!
 // Инструкция в README.md
 // ============================================================
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCdYfL_Ifl_AzVVYNT_opjRUbF6ln2NehI",
   authDomain: "rebikchat.firebaseapp.com",
   databaseURL: "https://rebikchat-default-rtdb.europe-west1.firebasedatabase.app",
