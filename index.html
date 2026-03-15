@@ -26,10 +26,11 @@
     color: var(--text);
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    overflow: hidden;
+    overflow-y: auto;
     position: relative;
+    padding: 20px 0 40px;
   }
 
   /* Animated background */
@@ -385,7 +386,7 @@
       if (usernameSnap.exists()) { showError(errEl, 'Такой логин уже занят'); resetBtn(btn, 'Создать аккаунт'); return; }
 
       // Создаём email из username (Firebase Auth требует email)
-      const fakeEmail = `${username}@rebikchat.local`;
+      const fakeEmail = `${username}@rebikchat-user.com`;
       const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
       const uid = cred.user.uid;
       const isAdmin = username === ADMIN_USERNAME.toLowerCase();
