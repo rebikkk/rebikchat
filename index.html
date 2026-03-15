@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RebikChat — Войти</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #3b82f6;
+    --accent2: #60a5fa;
+    --green: #22c55e;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #475569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Onest', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Animated background */
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 20s linear infinite;
+  }
+  @keyframes gridMove {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(40px); }
+  }
+  .bg-glow {
+    position: fixed;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 420px;
+    padding: 20px;
+    animation: slideUp 0.5s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .logo-icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 16px;
+    box-shadow: 0 0 40px rgba(59,130,246,0.3);
+  }
+  .logo h1 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .logo p {
+    font-size: 13px;
+    color: var(--text3);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  }
+
+  .tabs {
+    display: flex;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+  .tab {
+    flex: 1; padding: 10px;
+    text-align: center;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text3);
+    transition: all 0.2s;
+    border: none;
+    background: none;
+  }
+  .tab.active {
+    background: var(--surface2);
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .form-group { margin-bottom: 18px; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 15px;
+    color: var(--text);
+    font-family: 'Onest', sans-serif;
+    transition: all 0.2s;
+    outline: none;
+  }
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  input::placeholder { color: var(--text3); }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Onest', sans-serif;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    color: white;
+    box-shadow: 0 4px 20px rgba(59,130,246,0.35);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 25px rgba(59,130,246,0.45);
+  }
+  .btn-primary:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .error-msg {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #fca5a5;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .success-msg {
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: #86efac;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+  .success-msg.show { display: block; }
+
+  .form-section { display: none; }
+  .form-section.active { display: block; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 6px;
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="container">
+  <div class="logo">
+    <div class="logo-icon">💬</div>
+    <h1>RebikChat</h1>
+    <p>// защищённый мессенджер</p>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Войти</button>
+      <button class="tab" onclick="switchTab('register')">Регистрация</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="form-section active" id="loginSection">
+      <div class="form-group">
+        <label>Имя пользователя</label>
+        <input type="text" id="loginUsername" placeholder="введи логин" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Пароль</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" onclick="login()" id="loginBtn">Войти</button>
+      <div class="error-msg" id="loginError"></div>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="form-section" id="registerSection">
+      <div class="form-group">
+        <label>Имя пользователя</label>
+        <input type="text" id="regUsername" placeholder="придумай логин" maxlength="20">
+        <div class="hint">Только буквы, цифры и _ (до 20 символов)</div>
+      </div>
+      <div class="form-group">
+        <label>Отображаемое имя</label>
+        <input type="text" id="regDisplayName" placeholder="как тебя будут видеть" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label>Пароль</label>
+        <input type="password" id="regPassword" placeholder="минимум 6 символов" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Подтверди пароль</label>
+        <input type="password" id="regPassword2" placeholder="повтори пароль" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" onclick="register()" id="registerBtn">Создать аккаунт</button>
+      <div class="error-msg" id="registerError"></div>
+      <div class="success-msg" id="registerSuccess"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  // Проверка авторизации
+  auth.onAuthStateChanged(user => {
+    if (user) window.location.href = 'chat.html';
+  });
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+    });
+    document.getElementById('loginSection').classList.toggle('active', tab === 'login');
+    document.getElementById('registerSection').classList.toggle('active', tab === 'register');
+  }
+
+  // Нажатие Enter
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const loginActive = document.getElementById('loginSection').classList.contains('active');
+      if (loginActive) login(); else register();
+    }
+  });
+
+  async function login() {
+    const username = document.getElementById('loginUsername').value.trim().toLowerCase();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+
+    errEl.classList.remove('show');
+    if (!username || !password) { showError(errEl, 'Заполни все поля'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span>Входим...';
+
+    try {
+      // Получаем email по username
+      const snap = await db.ref('usernames/' + username).get();
+      if (!snap.exists()) { showError(errEl, 'Пользователь не найден'); resetBtn(btn, 'Войти'); return; }
+
+      const email = snap.val();
+
+      // Проверка бана
+      const banSnap = await db.ref('banned/' + username).get();
+      if (banSnap.exists()) {
+        showError(errEl, '🚫 Аккаунт заблокирован администратором');
+        resetBtn(btn, 'Войти');
+        return;
+      }
+
+      await auth.signInWithEmailAndPassword(email, password);
+      // onAuthStateChanged перенаправит
+    } catch(e) {
+      const msgs = {
+        'auth/wrong-password': 'Неверный пароль',
+        'auth/too-many-requests': 'Слишком много попыток. Подожди немного',
+        'auth/user-disabled': 'Аккаунт заблокирован',
+      };
+      showError(errEl, msgs[e.code] || 'Ошибка входа: ' + e.message);
+      resetBtn(btn, 'Войти');
+    }
+  }
+
+  async function register() {
+    const username = document.getElementById('regUsername').value.trim().toLowerCase();
+    const displayName = document.getElementById('regDisplayName').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const password2 = document.getElementById('regPassword2').value;
+    const errEl = document.getElementById('registerError');
+    const sucEl = document.getElementById('registerSuccess');
+    const btn = document.getElementById('registerBtn');
+
+    errEl.classList.remove('show');
+    sucEl.classList.remove('show');
+
+    if (!username || !displayName || !password || !password2) { showError(errEl, 'Заполни все поля'); return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) { showError(errEl, 'Логин: только a-z, 0-9, _ (3-20 символов)'); return; }
+    if (password.length < 6) { showError(errEl, 'Пароль минимум 6 символов'); return; }
+    if (password !== password2) { showError(errEl, 'Пароли не совпадают'); return; }
+
+    // Запрещённые имена
+    const reserved = ['admin', 'system', 'bot', 'moderator'];
+    if (reserved.includes(username) && username !== ADMIN_USERNAME.toLowerCase()) {
+      showError(errEl, 'Это имя зарезервировано'); return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span>Создаём...';
+
+    try {
+      // Проверяем уникальность username
+      const usernameSnap = await db.ref('usernames/' + username).get();
+      if (usernameSnap.exists()) { showError(errEl, 'Такой логин уже занят'); resetBtn(btn, 'Создать аккаунт'); return; }
+
+      // Создаём email из username (Firebase Auth требует email)
+      const fakeEmail = `${username}@rebikchat.local`;
+      const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
+      const uid = cred.user.uid;
+      const isAdmin = username === ADMIN_USERNAME.toLowerCase();
+
+      // Сохраняем данные пользователя
+      await Promise.all([
+        db.ref('usernames/' + username).set(fakeEmail),
+        db.ref('users/' + uid).set({
+          uid,
+          username,
+          displayName,
+          isAdmin,
+          createdAt: Date.now(),
+          lastSeen: Date.now(),
+          status: 'online'
+        })
+      ]);
+
+      // Создаём дефолтные каналы если их нет
+      await initDefaultChannels();
+
+      // Уже залогинен — onAuthStateChanged сделает redirect
+    } catch(e) {
+      const msgs = {
+        'auth/email-already-in-use': 'Такой логин уже занят',
+        'auth/weak-password': 'Пароль слишком простой',
+      };
+      showError(errEl, msgs[e.code] || e.message);
+      resetBtn(btn, 'Создать аккаунт');
+    }
+  }
+
+  async function initDefaultChannels() {
+    const snap = await db.ref('channels').get();
+    if (!snap.exists()) {
+      await db.ref('channels').set({
+        general: { name: 'general', description: 'Общий чат', icon: '💬', createdAt: Date.now(), order: 0 },
+        random: { name: 'random', description: 'Флуд и мемы', icon: '🎲', createdAt: Date.now(), order: 1 },
+        news: { name: 'news', description: 'Новости проекта', icon: '📰', createdAt: Date.now(), order: 2 },
+      });
+    }
+  }
+
+  function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
+  function resetBtn(btn, text) { btn.disabled = false; btn.innerHTML = text; }
+</script>
+</body>
+</html>
