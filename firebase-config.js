@@ -12,8 +12,8 @@ const FIREBASE_CONFIG = {
   appId: "1:683445862533:web:100a45ca6d425e0fd0e9ec"
 };
 
-// Имя администратора (твой логин)
-const ADMIN_USERNAME = "Rebik";
+// Имя администратора (твой логин, строчными буквами!)
+const ADMIN_USERNAME = "rebik";
 
 // Инициализация Firebase
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -40,6 +40,12 @@ const utils = {
   escapeHtml(text) {
     const div = document.createElement('div');
     div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+  },
+  generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+};
     return div.innerHTML;
   },
   generateId() {
