@@ -435,9 +435,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
-<script>
-const utils = { escapeHtml(t){ const d=document.createElement("div"); d.appendChild(document.createTextNode(t)); return d.innerHTML; } };
-</script>
+
 <script>
 let adminUser = null;
 let allUsers = {};
@@ -762,3 +760,10 @@ async function adminSendMsg(uid, displayName) {
   await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
   alert('Сообщение отправлено!');
 }
+function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
+document.getElementById('createChannelModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+</body>
+</html>
