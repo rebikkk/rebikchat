@@ -2,6 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src https://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none';">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Referrer-Policy" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RebikChat — Войти</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -288,6 +291,7 @@
   </div>
 </div>
 
+<script src="security.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -373,7 +377,7 @@
 
     // Запрещённые имена
     const reserved = ['admin', 'system', 'bot', 'moderator'];
-    if (reserved.includes(username) && username !== ADMIN_USERNAME.toLowerCase()) {
+    if (reserved.includes(username)) {
       showError(errEl, 'Это имя зарезервировано'); return;
     }
 
@@ -389,7 +393,7 @@
       const fakeEmail = `${username}@rebikchat-user.com`;
       const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
       const uid = cred.user.uid;
-      const isAdmin = username === ADMIN_USERNAME.toLowerCase();
+      const isAdmin = false; // isAdmin назначается только вручную через панель администратора
 
       // Сохраняем данные пользователя
       await Promise.all([
