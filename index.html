@@ -405,6 +405,9 @@
       // Создаём дефолтные каналы если их нет
       await initDefaultChannels();
 
+      // Отметить как нового пользователя для показа рекомендаций
+      await db.ref('users/' + uid + '/isNewUser').set(true);
+
       // Уже залогинен — onAuthStateChanged сделает redirect
     } catch(e) {
       const msgs = {
