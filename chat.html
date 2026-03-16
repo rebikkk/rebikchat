@@ -1122,7 +1122,7 @@ function searchUsers(q){
   if(q.length<1) return;
   const ql=q.toLowerCase();
   Object.values(allUsers)
-    .filter(u=>u.uid!==me.uid&&(u.username.includes(ql)||u.displayName.toLowerCase().includes(ql)))
+    .filter(u=>u&&u.uid!==me.uid&&u.username&&u.displayName&&(u.username.includes(ql)||u.displayName.toLowerCase().includes(ql)))
     .slice(0,8)
     .forEach(u=>{
       const d=document.createElement('div');
