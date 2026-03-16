@@ -521,7 +521,6 @@ select.finput{cursor:pointer;}
 <div class="toast" id="toast"></div>
 
 <!-- FIREBASE & APP -->
-<script src="security.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -538,7 +537,7 @@ const FB = {
   messagingSenderId:"683445862533",
   appId:"1:683445862533:web:100a45ca6d425e0fd0e9ec"
 };
-// ADMIN_LOGIN removed
+const ADMIN_LOGIN = "rebik";
 try{ firebase.initializeApp(FB); }catch(e){}
 const auth = firebase.auth();
 const db   = firebase.database();
