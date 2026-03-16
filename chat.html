@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <title>ReChat</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -762,7 +765,7 @@ const formatText = t => {
   // _italic_
   s = s.replace(/_(.+?)_/g,'<i>$1</i>');
   // `code`
-  s =   s = s.replace(/`([^`]+)`/g,'<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">$1</code>');
+  s = s.replace(/`([^`]+)`/g,'<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">$1</code>');
   // ~~strikethrough~~
   s = s.replace(/~~(.+?)~~/g,'<s>$1</s>');
   // newlines
@@ -935,6 +938,7 @@ function openRoom(id){
   if(r.type==='channel') db.ref('rooms/'+id+'/views/'+me.uid).set(true);
 
   const extraActs=$('header-acts-extra'); if(extraActs){extraActs.innerHTML='';extraActs.style.display='none';}
+  if(dmTypingRef){dmTypingRef.off();dmTypingRef=null;} if(me&&curRoom)db.ref('dmTyping/'+curRoom+'/'+me.uid).remove();
   updateActiveNav(); showChat();
   loadMessages('rooms/'+id+'/msgs');
   listenTyping(id);
@@ -970,6 +974,7 @@ function openDm(dmId,otherUser){
   updateActiveNav(); showChat();
   loadMessages('dms/'+dmId+'/msgs');
   updateOnline();
+  listenDmTyping(dmId);
 }
 
 function showChat(){
@@ -1033,7 +1038,7 @@ function renderMsg(id,msg,container,showHead){
   // Канал: имя = имя канала если нет подписи
   const isChannel=curRoom&&allRooms[curRoom]&&allRooms[curRoom].type==='channel';
   const showSig=isChannel&&allRooms[curRoom].showSignature;
-  const displayName=isChannel&&!showSig?(allRooms[curRoom].name||'Канал'):esc(msg.name||author.displayName||'?');
+  const displayName=isChannel&&!showSig?esc(allRooms[curRoom].name||'Канал'):esc(msg.name||author.displayName||'?');
   const channelAv=isChannel&&!showSig?(allRooms[curRoom].avatarData?`<img src="${allRooms[curRoom].avatarData}">` :(allRooms[curRoom].icon||'📢')):null;
 
   const nameClass=isSysAdm?'msg-name adm':(isRoomAdm?'msg-name chadm':'msg-name');
@@ -1126,8 +1131,20 @@ async function sendMsg(){
   if(!raw.trim()||!me) return;
 
   const now=Date.now();
-  if(now-lastMsgTs<3000){spamCount++;if(spamCount>5){toast('Подожди секунду!','err');return;}}
-  else{spamCount=1;lastMsgTs=now;}
+  const timeDiff=now-lastMsgTs;
+  // Флудвейт: минимум 1 сек между сообщениями
+  if(timeDiff<1000){
+    spamCount++;
+    if(spamCount>=3){
+      const wait=Math.min(30,spamCount*2); // до 30 секунд штраф
+      toast(`Флудвейт: подожди ${wait} сек`,'err');
+      setTimeout(()=>{spamCount=Math.max(0,spamCount-1);},wait*1000);
+      return;
+    }
+    toast('Не так быстро!','err'); return;
+  }
+  spamCount=Math.max(0,spamCount-1);
+  lastMsgTs=now;
 
   const f=filterMsg(raw); if(!f.ok){toast(f.reason,'err');return;}
 
@@ -1183,10 +1200,30 @@ function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();
 
 // ══ TYPING ══
 function handleTyping(){
-  if(!curRoom||!me||isDm) return;
-  db.ref('typing/'+curRoom+'/'+me.uid).set(me.displayName);
-  clearTimeout(typingTimer);
-  typingTimer=setTimeout(()=>db.ref('typing/'+curRoom+'/'+me.uid).remove(),2500);
+  if(!curRoom||!me) return;
+  if(isDm){
+    // Typing в ЛС через отдельный узел
+    if(!curDmOther) return;
+    db.ref('dmTyping/'+curRoom+'/'+me.uid).set(me.displayName);
+    clearTimeout(typingTimer);
+    typingTimer=setTimeout(()=>db.ref('dmTyping/'+curRoom+'/'+me.uid).remove(),2500);
+  } else {
+    db.ref('typing/'+curRoom+'/'+me.uid).set(me.displayName);
+    clearTimeout(typingTimer);
+    typingTimer=setTimeout(()=>db.ref('typing/'+curRoom+'/'+me.uid).remove(),2500);
+  }
+}
+let dmTypingRef=null;
+function listenDmTyping(dmId){
+  if(dmTypingRef) dmTypingRef.off();
+  dmTypingRef=db.ref('dmTyping/'+dmId);
+  dmTypingRef.on('value',snap=>{
+    const t=snap.val()||{};
+    const bar=$('typingBar');
+    const others=Object.entries(t).filter(([uid])=>uid!==me.uid).map(([,n])=>n);
+    if(others.length===0){bar.innerHTML='';return;}
+    bar.innerHTML=`<span style="color:var(--accent2)">${esc(others[0])}</span> печатает<span class="tdots">...</span>`;
+  });
 }
 let pinnedRef=null;
 function listenPinned(roomId){
@@ -1425,561 +1462,3 @@ function viewProfile(uid){
 
   const acts=$('ppActs'); acts.innerHTML='';
   if(!isSelf){
-    const dmBtn=document.createElement('button'); dmBtn.className='pp-btn pp-btn-p'; dmBtn.textContent='💬 Написать';
-    dmBtn.onclick=async()=>{
-      const snap=await db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get(); const dms=snap.val()||{};
-      let dmId=null; for(const [id,dm] of Object.entries(dms)){if(dm.p&&dm.p[me.uid]&&dm.p[uid]){dmId=id;break;}}
-      if(!dmId){const ref=db.ref('dms').push();dmId=ref.key;await ref.set({p:{[me.uid]:true,[uid]:true},createdAt:Date.now()});}
-      closeProfilePage(); openDm(dmId,u);
-    };
-    acts.appendChild(dmBtn);
-
-    // Личная блокировка
-    const myBlocks=me.blockedUsers||{};
-    const isBlocked=myBlocks[uid];
-    const blockBtn=document.createElement('button'); blockBtn.className='pp-btn pp-btn-s'; blockBtn.textContent=isBlocked?'✅ Разблокировать':'🚫 Заблокировать';
-    blockBtn.onclick=async()=>{
-      if(isBlocked){
-        await db.ref('users/'+me.uid+'/blockedUsers/'+uid).remove();
-        delete me.blockedUsers[uid]; toast(u.displayName+' разблокирован','ok');
-      } else {
-        if(!confirm('Заблокировать '+u.displayName+'?')) return;
-        await db.ref('users/'+me.uid+'/blockedUsers/'+uid).set(true);
-        me.blockedUsers=me.blockedUsers||{}; me.blockedUsers[uid]=true; toast(u.displayName+' заблокирован','ok');
-      }
-      closeProfilePage();
-    };
-    acts.appendChild(blockBtn);
-
-    // Жалоба
-    const repBtn=document.createElement('button'); repBtn.className='pp-btn pp-btn-s'; repBtn.textContent='🚩 Пожаловаться';
-    repBtn.onclick=()=>{ closeProfilePage(); openReport('user',uid,u.displayName); }; acts.appendChild(repBtn);
-
-    // Кнопка удалить диалог — ищем существующий DM
-    (async()=>{
-      const snap=await db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get();
-      const dms=snap.val()||{};
-      let existingDmId=null;
-      for(const [id,dm] of Object.entries(dms)){
-        if(dm.p&&dm.p[me.uid]&&dm.p[uid]){existingDmId=id;break;}
-      }
-      if(existingDmId){
-        const delDmBtn=document.createElement('button'); delDmBtn.className='pp-btn pp-btn-d';
-        delDmBtn.textContent='🗑 Удалить диалог';
-        delDmBtn.onclick=()=>{
-          if(confirm('Удалить диалог? Сообщения исчезнут у обоих.')){
-            closeProfilePage(); deleteDmForBoth(existingDmId);
-          }
-        };
-        acts.appendChild(delDmBtn);
-      }
-    })();
-
-    if(me.isAdmin){
-      const banBtn=document.createElement('button'); banBtn.className='pp-btn pp-btn-d'; banBtn.textContent='👑 Бан';
-      banBtn.onclick=async()=>{ if(confirm('Заблокировать '+u.displayName+'?')){ await db.ref('banned/'+u.username).set({at:Date.now(),by:me.username}); await db.ref('users/'+uid).update({isBanned:true}); addLog('lb','Бан: '+u.displayName); toast(u.displayName+' заблокирован','ok'); closeProfilePage(); } };
-      acts.appendChild(banBtn);
-    }
-  } else {
-    const editBtn=document.createElement('button'); editBtn.className='pp-btn pp-btn-s'; editBtn.textContent='✏️ Редактировать';
-    editBtn.onclick=()=>{ closeProfilePage(); openMyProfile(); }; acts.appendChild(editBtn);
-    const wpBtn=document.createElement('button'); wpBtn.className='pp-btn pp-btn-s'; wpBtn.textContent='🖼 Обои';
-    wpBtn.onclick=()=>{ closeProfilePage(); openWallpaperModal(); }; acts.appendChild(wpBtn);
-  }
-
-  $('chatView').style.display='none'; $('welcomeScreen').style.display='none';
-  $('profilePage').classList.add('show');
-}
-function closeProfilePage(){
-  $('profilePage').classList.remove('show');
-  if(curRoom){const cv=$('chatView');cv.style.display='flex';cv.style.flexDirection='column';cv.style.flex='1';cv.style.minHeight='0';cv.style.overflow='hidden';}
-  else{$('welcomeScreen').style.display='flex';}
-}
-
-// ══ MY PROFILE EDIT ══
-function openMyProfile(){
-  $('epName').value=me.displayName; $('epBio').value=me.bio||'';
-  $('epVerified').checked=me.verified||false;
-  $('epVerifiedWrap').style.display=me.isAdmin?'block':'none';
-  $('epHideLastSeen').checked=me.hideLastSeen||false;
-  pendingAvatar=null; $('epAvatarPrev').style.display='none';
-  $('editProfileModal').classList.add('show');
-}
-function loadAvatar(e){
-  const f=e.target.files[0]; if(!f) return;
-  if(f.size>600000){toast('Макс 600КБ','err');return;}
-  const r=new FileReader(); r.onload=ev=>{pendingAvatar=ev.target.result;$('epAvatarImg').src=pendingAvatar;$('epAvatarPrev').style.display='flex';$('epAvatarPrev').style.alignItems='center';}; r.readAsDataURL(f);
-}
-async function saveMyProfile(){
-  const name=$('epName').value.trim().substring(0,30); if(!name){toast('Имя не может быть пустым','err');return;}
-  if(/<[^>]*>/.test(name)){toast('Недопустимые символы в имени','err');return;}
-  const bio=$('epBio').value.trim().substring(0,160);
-  const updates={displayName:name,bio,hideLastSeen:$('epHideLastSeen').checked};
-  if(pendingAvatar) updates.avatarData=pendingAvatar;
-  if(me.isAdmin) updates.verified=$('epVerified').checked;
-  await db.ref('users/'+me.uid).update(updates);
-  me.displayName=name; me.bio=bio; me.hideLastSeen=$('epHideLastSeen').checked;
-  if(pendingAvatar) me.avatarData=pendingAvatar;
-  if(me.isAdmin) me.verified=$('epVerified').checked;
-  renderSelf(); closeOverlay('editProfileModal'); toast('Профиль обновлён!','ok');
-}
-
-// ══ WALLPAPER ══
-const WALLPAPERS=[
-  {name:'Нет',value:null,color:'#0a0e17'},
-  {name:'Синий',value:'linear-gradient(135deg,#0a0e17 0%,#0d1b3e 100%)'},
-  {name:'Фиолет',value:'linear-gradient(135deg,#1a0a2e 0%,#0d1220 100%)'},
-  {name:'Зелёный',value:'linear-gradient(135deg,#0a1a0f 0%,#0d1220 100%)'},
-  {name:'Тёмный',value:'linear-gradient(135deg,#000 0%,#1a1a2e 100%)'},
-  {name:'Тёплый',value:'linear-gradient(135deg,#1a0a0a 0%,#2d1b1b 100%)'},
-];
-function openWallpaperModal(){
-  const grid=$('wallpaperGrid'); grid.innerHTML='';
-  WALLPAPERS.forEach(w=>{
-    const btn=document.createElement('div');
-    btn.style.cssText=`width:100%;aspect-ratio:1;border-radius:10px;cursor:pointer;border:2px solid var(--border);transition:all .2s;background:${w.value||'#0a0e17'}`;
-    btn.title=w.name;
-    btn.onclick=()=>{pendingWallpaper=w.value;grid.querySelectorAll('div').forEach(b=>b.style.borderColor='var(--border)');btn.style.borderColor='var(--accent)';};
-    grid.appendChild(btn);
-  });
-  pendingWallpaper=undefined;
-  $('wallpaperModal').classList.add('show');
-}
-function loadWallpaper(e){
-  const f=e.target.files[0]; if(!f) return;
-  if(f.size>2000000){toast('Макс 2МБ','err');return;}
-  const r=new FileReader(); r.onload=ev=>{pendingWallpaper=`url('${ev.target.result}')`;toast('Картинка загружена, нажми Применить','info');}; r.readAsDataURL(f);
-}
-async function saveWallpaper(){
-  if(pendingWallpaper===undefined){closeOverlay('wallpaperModal');return;}
-  await db.ref('users/'+me.uid+'/wallpaper').set(pendingWallpaper||null);
-  me.wallpaper=pendingWallpaper||null;
-  applyWallpaper(me.wallpaper);
-  closeOverlay('wallpaperModal'); toast('Обои применены!','ok');
-}
-function resetWallpaper(){ pendingWallpaper=null; }
-function applyWallpaper(w){
-  const msgs=$('msgsContainer'); if(!msgs) return;
-  if(w){ msgs.style.backgroundImage=w.startsWith('url(')?w:'none'; msgs.style.background=w.startsWith('url(')?'':w; }
-  else{ msgs.style.background=''; msgs.style.backgroundImage=''; }
-}
-
-// ══ ROOM INFO ══
-function openCurrentInfo(){
-  if(isDm&&curDmOther){
-    viewProfile(curDmOther.uid);
-    return;
-  }
-  if(!curRoom||!allRooms[curRoom]) return;
-  const r=allRooms[curRoom];
-  const memberIds=Object.keys(r.type==='channel'?(r.subscribers||{}):(r.members||{}));
-  const online=memberIds.filter(uid=>allUsers[uid]&&allUsers[uid].status==='online').length;
-  const views=r.views?Object.keys(r.views).length:0;
-  const inviteLink=location.origin+location.pathname+'?join='+curRoom;
-  const isCreator=r.createdBy===me.username;
-  const canEdit=me.isAdmin||isCreator||isRoomAdmin(curRoom);
-
-  $('roomInfoTitle').textContent=(r.icon||'💬')+' '+r.name;
-  $('roomInfoBody').innerHTML=`
-    <div class="info-section">
-      <div style="display:flex;align-items:flex-start;gap:12px">
-        <span style="font-size:36px">${r.avatarData?`<img src="${r.avatarData}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">`:(r.icon||'💬')}</span>
-        <div style="flex:1">
-          <div class="info-name">${esc(r.name)}${r.verified?' <span style="color:var(--accent);font-size:14px">✅</span>':''}</div>
-          <div class="info-desc">${esc(r.desc||'Без описания')}</div>
-          <div class="info-meta">@${r.createdBy||'—'} • ${r.type==='channel'?'Канал':'Чат'} • ${r.isPrivate?'🔒 Приватный':'🌐 Публичный'}</div>
-        </div>
-      </div>
-      <div class="info-stats">
-        <div class="info-stat"><div class="is-v">${memberIds.length}</div><div class="is-l">${r.type==='channel'?'Подписчиков':'Участников'}</div></div>
-        <div class="info-stat"><div class="is-v" style="color:var(--green)">${online}</div><div class="is-l">Онлайн</div></div>
-        ${r.type==='channel'?`<div class="info-stat"><div class="is-v">👁 ${views}</div><div class="is-l">Просмотров</div></div>`:''}
-      </div>
-    </div>
-    ${!r.isPrivate?`<div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Ссылка</div>
-    <div class="invite-row"><span class="invite-link">${inviteLink}</span><button class="copy-btn" onclick="copyLink('${inviteLink}',this)">Копировать</button></div>`:''}
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="mbtn mbtn-s" style="flex:1;min-width:100px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Onest',sans-serif;font-size:13px" onclick="openReport('room','${curRoom}','${esc(r.name)}')">🚩 Пожаловаться</button>
-      ${canEdit?`<button class="mbtn mbtn-s" style="flex:1;min-width:100px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text2);cursor:pointer;font-family:'Onest',sans-serif;font-size:13px" onclick="openEditRoom('${curRoom}')">✏️ Настройки</button>`:''}
-      ${me.isAdmin?`<button class="mbtn" style="flex:1;min-width:100px;padding:8px;border-radius:8px;background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.2);cursor:pointer;font-family:'Onest',sans-serif;font-size:13px" onclick="deleteRoom('${curRoom}')">🗑 Удалить</button>`:''}
-    </div>`;
-  $('roomInfoModal').classList.add('show');
-}
-function copyLink(link,btn){navigator.clipboard.writeText(link);btn.textContent='✓ Скопировано';setTimeout(()=>btn.textContent='Копировать',2000);}
-
-async function openEditRoom(id){
-  const r=allRooms[id]; if(!r) return;
-  closeOverlay('roomInfoModal');
-  $('roomType').value=r.type; $('roomType').disabled=true;
-  $('createRoomTitle').textContent='⚙️ Настройки '+r.name;
-  $('roomName').value=r.name; $('roomDesc').value=r.desc||''; $('roomIcon').value=r.icon||''; $('roomMode').value=r.mode||'public';
-
-  // Добавить доп. настройки
-  let extraHTML='';
-  if(r.type==='channel'){
-    extraHTML+=`<label class="flabel" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
-      <input type="checkbox" id="editShowSig" style="width:15px;height:15px;accent-color:var(--accent)" ${r.showSignature?'checked':''}>
-      <span>✍️ Показывать подпись автора в постах</span></label>`;
-  }
-  extraHTML+=`<label class="flabel" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
-    <input type="checkbox" id="editIsPrivate" style="width:15px;height:15px;accent-color:var(--accent)" ${r.isPrivate?'checked':''}>
-    <span>🔒 Приватный (только по ссылке)</span></label>`;
-  extraHTML+=`<label class="flabel">Аватарка (загрузить файл)</label>
-    <label style="display:block;background:var(--bg);border:1px dashed var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text2);cursor:pointer;margin-bottom:10px">
-      📷 Загрузить аватарку
-      <input type="file" accept="image/*" style="display:none" onchange="loadRoomAvatar(event,'${id}')"></label>
-    <div id="roomAvatarPrev" style="margin-bottom:10px;display:${r.avatarData?'flex':'none'};align-items:center;gap:8px">
-      <img id="roomAvatarImg" src="${r.avatarData||''}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">
-      <span style="font-size:12px;color:var(--green)">✓ Аватарка установлена</span>
-    </div>`;
-
-  // Вставить доп. поля в модал перед кнопками
-  const modal=document.querySelector('#createRoomModal .mbtns');
-  let extraEl=document.getElementById('editExtraFields');
-  if(extraEl) extraEl.remove();
-  const div=document.createElement('div'); div.id='editExtraFields'; div.innerHTML=extraHTML;
-  modal.parentNode.insertBefore(div,modal);
-
-  $('createRoomModal').classList.add('show');
-  document.querySelector('#createRoomModal .mbtn-p').onclick=async()=>{
-    const desc=$('roomDesc').value.trim(); const icon=$('roomIcon').value.trim()||r.icon; const mode=$('roomMode').value;
-    const isPrivate=document.getElementById('editIsPrivate')?document.getElementById('editIsPrivate').checked:r.isPrivate;
-    const showSig=document.getElementById('editShowSig')?document.getElementById('editShowSig').checked:r.showSignature;
-    const upd={desc,icon,mode,isPrivate,showSignature:showSig};
-    if(window._pendingRoomAvatar){upd.avatarData=window._pendingRoomAvatar;window._pendingRoomAvatar=null;}
-    await db.ref('rooms/'+id).update(upd);
-    $('roomType').disabled=false;
-    document.querySelector('#createRoomModal .mbtn-p').onclick=createRoom;
-    const extraEl=document.getElementById('editExtraFields'); if(extraEl) extraEl.remove();
-    closeOverlay('createRoomModal'); toast('Обновлено!','ok');
-  };
-}
-function loadRoomAvatar(e,id){
-  const f=e.target.files[0]; if(!f) return;
-  if(f.size>600000){toast('Макс 600КБ','err');return;}
-  const r=new FileReader(); r.onload=ev=>{
-    window._pendingRoomAvatar=ev.target.result;
-    $('roomAvatarImg').src=ev.target.result; $('roomAvatarPrev').style.display='flex';
-  }; r.readAsDataURL(f);
-}
-async function deleteRoom(id){
-  if(confirm('Удалить '+allRooms[id].name+'?')){
-    await db.ref('rooms/'+id).remove(); closeOverlay('roomInfoModal'); curRoom=null;
-    $('welcomeScreen').style.display='flex'; $('chatView').style.display='none'; toast('Удалено','ok');
-  }
-}
-
-// ══ REPORT ══
-let selectedReason='';
-function selectReason(btn){
-  document.querySelectorAll('.report-reason-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  selectedReason=btn.dataset.v;
-  $('reportSubmitBtn').disabled=false; $('reportSubmitBtn').style.opacity='1';
-}
-function openReport(type, id, name, msgText){
-  reportTargetType=type; reportTargetId=id; selectedReason='';
-  document.querySelectorAll('.report-reason-btn').forEach(b=>b.classList.remove('active'));
-  $('reportSubmitBtn').disabled=true; $('reportSubmitBtn').style.opacity='.5';
-  $('reportComment').value='';
-  const box=$('reportTargetBox');
-  if(type==='msg'&&msgText){
-    box.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:4px">СООБЩЕНИЕ</div><div style="color:var(--text)">${esc(msgText.substring(0,100))}</div>`;
-  } else {
-    box.innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:4px">${type==='user'?'ПОЛЬЗОВАТЕЛЬ':type==='room'?'ЧАТ/КАНАЛ':'СООБЩЕНИЕ'}</div><div style="color:var(--text)">${esc(name||id)}</div>`;
-  }
-  $('reportModal').classList.add('show');
-}
-async function submitReport(){
-  if(!selectedReason) return;
-  const comment=$('reportComment').value.trim();
-  const reportData={type:reportTargetType,targetId:reportTargetId,reason:selectedReason,comment,by:me.uid,byUsername:me.username,ts:Date.now(),status:'new'};
-  // Для жалоб на сообщения — сохранить текст сообщения
-  if(reportTargetType==='msg' && ctxMsgText) reportData.msgText=ctxMsgText.substring(0,500);
-  if(reportTargetType==='msg' && ctxMsgAuthorId) reportData.msgAuthorId=ctxMsgAuthorId;
-  await db.ref('reports').push(reportData);
-  closeOverlay('reportModal'); toast('Жалоба отправлена. Спасибо!','ok');
-}
-
-// ══ CONTEXT MENU ══
-function openCtx(e,mid,msg){
-  // Превью сообщения
-  const preview=$('ctxMsgPreview');
-  if(preview) preview.textContent=(msg.text||'').substring(0,60);
-  ctxMsgId=mid; ctxMsgAuthorId=msg.uid; ctxMsgText=msg.text||''; ctxMsgOwn=msg.uid===me.uid;
-  $('ctxDelBtn').style.display=(ctxMsgOwn||me.isAdmin||isRoomAdmin(curRoom))?'flex':'none';
-  $('ctxEditBtn').style.display=ctxMsgOwn?'flex':'none';
-  $('ctxBanBtn').style.display=(me.isAdmin&&!ctxMsgOwn)?'flex':'none';
-  const canPin=!isDm&&(me.isAdmin||isRoomAdmin(curRoom));
-  const isPinned=allRooms[curRoom]&&allRooms[curRoom].pinned&&allRooms[curRoom].pinned.mid===ctxMsgId;
-  if($('ctxPinBtn')) $('ctxPinBtn').style.display=(canPin&&!isPinned)?'flex':'none';
-  if($('ctxUnpinBtn')) $('ctxUnpinBtn').style.display=(canPin&&isPinned)?'flex':'none';
-  const canManage=me.isAdmin||isRoomAdmin(curRoom);
-  const targetIsAdm=allRooms[curRoom]&&allRooms[curRoom].admins&&allRooms[curRoom].admins[ctxMsgAuthorId];
-  $('ctxPromBtn').style.display=(canManage&&!ctxMsgOwn&&!targetIsAdm&&!isDm)?'flex':'none';
-  $('ctxDemBtn').style.display=(canManage&&!ctxMsgOwn&&targetIsAdm&&!isDm)?'flex':'none';
-  posCtx(e);
-}
-function openCtxUser(e,u){ctxMsgAuthorId=u.uid;ctxMsgOwn=false;$('ctxDelBtn').style.display='none';$('ctxEditBtn').style.display='none';$('ctxBanBtn').style.display=me.isAdmin?'flex':'none';const isRAdm=allRooms[curRoom]&&allRooms[curRoom].admins&&allRooms[curRoom].admins[u.uid];$('ctxPromBtn').style.display=(!isRAdm&&(me.isAdmin||isRoomAdmin(curRoom)))?'flex':'none';$('ctxDemBtn').style.display=(isRAdm&&(me.isAdmin||isRoomAdmin(curRoom)))?'flex':'none';posCtx(e);}
-function posCtx(e){
-  const m=$('ctx');
-  if(window.innerWidth<=768){
-    // На мобиле - снизу, css уже позиционирует
-    m.style.left=''; m.style.top=''; m.style.right=''; m.style.bottom='';
-  } else {
-    m.style.left=Math.min(e.clientX,innerWidth-200)+'px';
-    m.style.top=Math.min(e.clientY,innerHeight-280)+'px';
-    m.style.right=''; m.style.bottom='';
-  }
-  m.classList.add('show');
-}
-function closeCtx(){$('ctx').classList.remove('show');}
-function ctxReact(emoji){doReact(ctxMsgId,emoji);closeCtx();}
-function ctxReport(){closeCtx();openReport('msg',ctxMsgId,null,ctxMsgText||'');}
-function ctxPin(){
-  closeCtx();
-  if(!curRoom||isDm||(!(me.isAdmin||isRoomAdmin(curRoom)))) return;
-  db.ref('rooms/'+curRoom+'/pinned').set({mid:ctxMsgId,text:ctxMsgText,ts:Date.now()});
-  toast('Сообщение закреплено 📌','ok');
-}
-function ctxUnpin(){
-  closeCtx();
-  if(!curRoom||isDm||(!(me.isAdmin||isRoomAdmin(curRoom)))) return;
-  unpinMsg();
-}
-function unpinMsg(){
-  if(!curRoom||isDm) return;
-  db.ref('rooms/'+curRoom+'/pinned').remove();
-  toast('Сообщение откреплено','info');
-}
-function scrollToPinned(){
-  const r=allRooms[curRoom]; if(!r||!r.pinned) return;
-  scrollToMsg(r.pinned.mid);
-}
-function ctxForward(){
-  closeCtx();
-  if(!ctxMsgText) return;
-  $('fwdSearch').value=''; $('fwdResults').innerHTML='';
-  $('fwdModal').classList.add('show');
-}
-function searchFwdTarget(q){
-  const res=$('fwdResults'); res.innerHTML='';
-  const ql=q.toLowerCase();
-  // Чаты и каналы
-  Object.entries(allRooms).filter(([,r])=>!ql||r.name.includes(ql)).slice(0,5).forEach(([id,r])=>{
-    const d=document.createElement('div');
-    d.style.cssText='padding:9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;';
-    d.innerHTML=`<span style="font-size:18px">${r.icon||'💬'}</span><span style="font-size:13px;font-weight:500">#${esc(r.name)}</span>`;
-    d.onclick=async()=>{
-      await db.ref('rooms/'+id+'/msgs').push({text:'↗️ '+ctxMsgText,uid:me.uid,name:me.displayName,ts:Date.now(),type:'text',forwarded:true});
-      closeOverlay('fwdModal'); toast('Переслано в #'+r.name,'ok');
-    };
-    res.appendChild(d);
-  });
-  // Пользователи (ЛС)
-  Object.values(allUsers).filter(u=>u&&u.uid!==me.uid&&u.displayName&&(!ql||u.displayName.toLowerCase().includes(ql)||u.username.includes(ql))).slice(0,5).forEach(u=>{
-    const d=document.createElement('div');
-    d.style.cssText='padding:9px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px;';
-    d.innerHTML=`<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${avatarOf(u)}</div><div><div style="font-size:13px;font-weight:500">${esc(u.displayName)}</div><div style="font-size:11px;color:var(--text3)">@${u.username}</div></div>`;
-    d.onclick=async()=>{
-      const snap=await db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get();
-      const dms=snap.val()||{}; let dmId=null;
-      for(const [id,dm] of Object.entries(dms)){if(dm.p&&dm.p[me.uid]&&dm.p[u.uid]){dmId=id;break;}}
-      if(!dmId){const ref=db.ref('dms').push();dmId=ref.key;await ref.set({p:{[me.uid]:true,[u.uid]:true},createdAt:Date.now()});}
-      await db.ref('dms/'+dmId+'/msgs').push({text:'↗️ '+ctxMsgText,uid:me.uid,name:me.displayName,ts:Date.now(),type:'text',forwarded:true});
-      closeOverlay('fwdModal'); toast('Переслано','ok');
-    };
-    res.appendChild(d);
-  });
-}
-document.addEventListener('click',e=>{if(!e.target.closest('#ctx'))closeCtx();});
-// Закрыть ctx при скролле на мобиле
-document.getElementById('msgsContainer')&&document.getElementById('msgsContainer').addEventListener('scroll',closeCtx);
-
-function ctxReply(){closeCtx();setReply(ctxMsgId,'пользователь',ctxMsgText.substring(0,60));}
-function ctxCopy(){navigator.clipboard.writeText(ctxMsgText);toast('Скопировано','info');closeCtx();}
-function ctxEdit(){openEdit(ctxMsgId,ctxMsgText);closeCtx();}
-function ctxDel(){
-  if(isDm){
-    if(confirm('Удалить у обоих?')) delDmMsg(ctxMsgId,true); else delDmMsg(ctxMsgId,false);
-  } else {
-    delMsg(ctxMsgId);
-  }
-  closeCtx();
-}
-async function ctxBan(){
-  const snap=await db.ref('users/'+ctxMsgAuthorId).get(); const u=snap.val();
-  if(u&&confirm('Заблокировать '+u.displayName+'?')){
-    await db.ref('banned/'+u.username).set({at:Date.now(),by:me.username});
-    await db.ref('users/'+ctxMsgAuthorId).update({isBanned:true});
-    addLog('lb','Бан: @'+u.username); toast(u.displayName+' заблокирован','ok');
-  }
-  closeCtx();
-}
-async function ctxProm(){if(!curRoom)return;await db.ref('rooms/'+curRoom+'/admins/'+ctxMsgAuthorId).set(true);const u=allUsers[ctxMsgAuthorId];toast((u&&u.displayName||'Пользователь')+' назначен модом ⭐','ok');updateMembersPanel();closeCtx();}
-async function ctxDem(){if(!curRoom)return;await db.ref('rooms/'+curRoom+'/admins/'+ctxMsgAuthorId).remove();const u=allUsers[ctxMsgAuthorId];toast((u&&u.displayName||'Пользователь')+' снят с мода','info');updateMembersPanel();closeCtx();}
-
-// ══ EMOJI ══
-function toggleEmoji(){$('emoPicker').classList.toggle('show');$('fmtPicker').style.display='none';}
-function toggleFmt(){const fp=$('fmtPicker');fp.style.display=fp.style.display==='flex'?'none':'flex';$('emoPicker').classList.remove('show');}
-function wrapFmt(before,after){
-  const inp=$('msgInput');
-  const s=inp.selectionStart,e=inp.selectionEnd;
-  const sel=inp.value.substring(s,e)||'текст';
-  inp.value=inp.value.substring(0,s)+before+sel+after+inp.value.substring(e);
-  inp.selectionStart=s+before.length; inp.selectionEnd=s+before.length+sel.length;
-  inp.focus(); $('fmtPicker').style.display='none';
-}
-function ins(e){const i=$('msgInput');const p=i.selectionStart;i.value=i.value.slice(0,p)+e+i.value.slice(p);i.selectionStart=i.selectionEnd=p+e.length;i.focus();$('emoPicker').classList.remove('show');}
-document.addEventListener('click',e=>{if(!e.target.closest('.emo-btn')&&!e.target.closest('#emoPicker'))$('emoPicker').classList.remove('show');if(!e.target.closest('.emo-btn')&&!e.target.closest('#fmtPicker'))$('fmtPicker').style.display='none';});
-
-// ══ LOG ══
-function addLog(type,text){if(!me||!me.isAdmin)return;db.ref('logs').push({type,text,ts:Date.now(),by:me.username});}
-function listenLog(){
-  if(!me||!me.isAdmin) return;
-  db.ref('logs').limitToLast(80).on('value',snap=>{
-    const list=$('logList'); list.innerHTML='';
-    const logs=snap.val()||{};
-    Object.entries(logs).sort((a,b)=>b[1].ts-a[1].ts).forEach(([,l])=>{
-      const d=document.createElement('div'); d.className='log-e '+l.type;
-      d.innerHTML=esc(l.text)+`<div class="log-t">${fmtTime(l.ts)} • @${l.by||'—'}</div>`;
-      list.appendChild(d);
-    });
-  });
-}
-function toggleLog(){if(!me||!me.isAdmin){toast('Только для администратора','err');return;}$('logPanel').classList.toggle('show');}
-
-// ══ CHANNEL RECOMMENDATIONS ══
-async function showRecommendedChannels(){
-  if(!me) return;
-  // Показать только новым пользователям
-  if(!me.isNewUser) return;
-
-  // Загрузить рекомендованные каналы (те что помечены recommended:true)
-  const snap = await db.ref('rooms').orderByChild('recommended').equalTo(true).get();
-  const channels = snap.val()||{};
-  const entries = Object.entries(channels).filter(([,r])=>r.type==='channel');
-  if(!entries.length) return;
-
-  const list = $('recommendList');
-  list.innerHTML = '';
-  entries.forEach(([id,r])=>{
-    const div = document.createElement('div');
-    div.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px';
-    div.innerHTML=`
-      <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${r.avatarData?`<img src="${r.avatarData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(r.icon||'📢')}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
-        <div style="font-size:12px;color:var(--text2)">${esc(r.desc||'')}</div>
-        <div style="font-size:11px;color:var(--text3)">${Object.keys(r.subscribers||{}).length} подписчиков</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <button onclick="subscribeRecommended('${id}',this)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Onest',sans-serif">Подписаться</button>
-        <button onclick="this.closest('[style]').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:'Onest',sans-serif">Пропустить</button>
-      </div>`;
-    list.appendChild(div);
-  });
-
-  $('recommendModal').classList.add('show');
-}
-async function subscribeRecommended(channelId, btn){
-  await db.ref('rooms/'+channelId+'/subscribers/'+me.uid).set(true);
-  btn.textContent='✓ Подписан'; btn.style.background='var(--green)'; btn.disabled=true;
-}
-function closeRecommendations(){
-  $('recommendModal').classList.remove('show');
-  db.ref('users/'+me.uid+'/isNewUser').remove();
-  me.isNewUser=false;
-}
-function openSettings(){ $('settingsModal').classList.add('show'); }
-function openPrivacySettings(){
-  $('privHideLastSeen').checked=me.hideLastSeen||false;
-  $('privDmMode').value=me.dmPrivacy||'all';
-  $('privacyModal').classList.add('show');
-}
-async function savePrivacySettings(){
-  const hideLS=$('privHideLastSeen').checked;
-  const dmPrivacy=$('privDmMode').value;
-  await db.ref('users/'+me.uid).update({hideLastSeen:hideLS,dmPrivacy});
-  me.hideLastSeen=hideLS; me.dmPrivacy=dmPrivacy;
-  closeOverlay('privacyModal'); toast('Настройки сохранены','ok');
-}
-
-// ══ PAGE TITLE ══
-function updatePageTitle(){
-  db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get().then(snap=>{
-    const dms=snap.val()||{};
-    let total=0;
-    Object.values(dms).forEach(dm=>{ if(dm.unread&&dm.unread[me.uid]) total+=dm.unread[me.uid]; });
-    document.title = total>0 ? `(${total}) ReChat` : 'ReChat';
-  });
-}
-
-// ══ TOAST ══
-let toastTimer=null;
-function toast(msg,type='ok'){
-  const t=$('toast');t.textContent=(type==='ok'?'✓ ':type==='err'?'✕ ':'ℹ️ ')+msg;
-  t.className='toast '+type+' show';
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
-}
-
-// ══ MISC ══
-function closeOverlay(id){$(id).classList.remove('show');}
-document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');}));
-function toggleSidebar(){$('sidebar').classList.toggle('open');$('sidebarOverlay').classList.toggle('show');}
-function closeSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('show');}
-
-
-// ══ RECOMMENDED CHANNELS ══
-async function showRecommendedChannels(){
-  // Показывать только при первом входе
-  const shownKey = 'rechat_recommend_shown_'+me.uid;
-  if(localStorage.getItem(shownKey)) return;
-
-  // Найти каналы помеченные как рекомендованные
-  const recommended = Object.entries(allRooms)
-    .filter(([,r]) => r.type==='channel' && r.recommended)
-    .slice(0, 5);
-
-  if(!recommended.length) return;
-
-  const list = $('recommendList');
-  list.innerHTML = '';
-  recommended.forEach(([id, r]) => {
-    const alreadySub = r.subscribers && r.subscribers[me.uid];
-    if(alreadySub) return;
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:8px';
-    item.innerHTML = `
-      <span style="font-size:24px">${r.icon||'📢'}</span>
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
-        <div style="font-size:12px;color:var(--text3)">${esc(r.desc||'')} • ${Object.keys(r.subscribers||{}).length} подписчиков</div>
-      </div>
-      <button class="mbtn mbtn-p" style="padding:6px 14px;font-size:12px;white-space:nowrap" onclick="subscribeRecommend('${id}',this)">Подписаться</button>
-    `;
-    list.appendChild(item);
-  });
-
-  if(!list.children.length) return;
-  $('recommendModal').classList.add('show');
-}
-
-async function subscribeRecommend(roomId, btn){
-  await db.ref('rooms/'+roomId+'/subscribers/'+me.uid).set(true);
-  btn.textContent = '✓ Подписан';
-  btn.disabled = true;
-  btn.style.background = 'var(--green)';
-}
-
-function closeRecommend(){
-  $('recommendModal').classList.remove('show');
-  localStorage.setItem('rechat_recommend_shown_'+me.uid, '1');
-}
-
-document.addEventListener('DOMContentLoaded', () => { setupScrollBtn(); });
-const urlJoin=new URLSearchParams(location.search).get('join');
-if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);});}
-</script>
-</body>
-</html>
