@@ -788,8 +788,10 @@ auth.onAuthStateChanged(async user => {
   if(!snap.exists()){ auth.signOut(); location.href='index.html'; return; }
   me = snap.val();
 
-  const banSnap = await db.ref('banned/'+me.username).get();
-  if(banSnap.exists()){ $('bannedBar').classList.add('show'); $('inputWrap').style.display='none'; }
+  try {
+    const banSnap = await db.ref('banned/'+me.username).get();
+    if(banSnap.exists()){ $('bannedBar').classList.add('show'); $('inputWrap').style.display='none'; }
+  } catch(e) {}
 
   const uRef = db.ref('users/'+user.uid);
   uRef.update({status:'online',lastSeen:Date.now()});
@@ -1148,7 +1150,7 @@ async function sendMsg(){
 
   const f=filterMsg(raw); if(!f.ok){toast(f.reason,'err');return;}
 
-  const banSnap=await db.ref('banned/'+me.username).get(); if(banSnap.exists()) return;
+  try{ const banSnap=await db.ref('banned/'+me.username).get(); if(banSnap.exists()) return; }catch(e){}
 
   // Проверка блокировки в ЛС
   if(isDm&&curDmOther){
@@ -1460,5 +1462,3 @@ function viewProfile(uid){
     <div class="stat-item"><div class="stat-val">${u.status==='online'?'<span style="color:var(--green)">●</span>':'<span style="color:var(--text3)">●</span>'}</div><div class="stat-lbl">${hideLS?'Оффлайн':lastSeenStr}</div></div>
     <div class="stat-item"><div class="stat-val" style="font-size:13px">${joinDate}</div><div class="stat-lbl">Регистрация</div></div>`;
 
-  const acts=$('ppActs'); acts.innerHTML='';
-  if(!isSelf){
