@@ -703,19 +703,40 @@ async function loadReports() {
   const reports = snap.val()||{};
   const entries = Object.entries(reports).sort((a,b)=>b[1].ts-a[1].ts);
   if(!entries.length){ list.innerHTML='<div class="empty-state">Жалоб нет 🎉</div>'; return; }
-  const reasons = {spam:'Спам',porn:'Порнография',terror:'Терроризм',violence:'Насилие',fraud:'Мошенничество',hate:'Оскорбления',other:'Другое'};
+  const reasons = {spam:'🗑 Спам',porn:'🔞 Порнография',terror:'💣 Терроризм',extremism:'☠️ Экстремизм',nazism:'⚡ Нацизм',violence:'⚔️ Насилие',fraud:'💰 Мошенничество',hate:'😤 Оскорбления',other:'❓ Другое'};
   list.innerHTML = entries.map(([id,r])=>`
-    <div class="ban-entry" style="flex-wrap:wrap;gap:8px">
-      <div style="flex:1;min-width:200px">
-        <div style="font-weight:600">${reasons[r.reason]||r.reason} <span class="badge ${r.status==='new'?'badge-red':'badge-gray'}">${r.status==='new'?'Новая':'Обработана'}</span></div>
-        <div style="font-size:12px;color:var(--text3)">От @${r.byUsername||'—'} • ${new Date(r.ts).toLocaleString('ru-RU')}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:3px">${r.type}: ${r.targetId}${r.comment?' — '+utils.escapeHtml(r.comment):''}</div>
-      </div>
-      <div style="display:flex;gap:6px">
-        ${r.status==='new'?`<button class="btn-sm btn-unban" onclick="resolveReport('${id}')">✅ Обработать</button>`:''}
-        <button class="btn-sm btn-del" onclick="deleteReport('${id}')">🗑</button>
+    <div style="padding:16px 20px;border-bottom:1px solid rgba(30,45,69,.5)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-weight:700;font-size:14px">${reasons[r.reason]||r.reason}</span>
+            <span class="badge ${r.status==='new'?'badge-red':'badge-gray'}">${r.status==='new'?'Новая':'Обработана'}</span>
+            <span class="badge badge-gray" style="font-size:10px">${r.type==='msg'?'сообщение':r.type==='user'?'пользователь':'чат/канал'}</span>
+          </div>
+          ${r.msgText?`<div style="background:rgba(0,0,0,.2);border-left:3px solid var(--red);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--text2);margin-bottom:8px;max-width:400px">${utils.escapeHtml(r.msgText)}</div>`:''}
+          <div style="font-size:12px;color:var(--text3)">От @${r.byUsername||'—'} • ${new Date(r.ts).toLocaleString('ru-RU')}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Цель: ${r.targetId}${r.comment?' • '+utils.escapeHtml(r.comment):''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          ${r.status==='new'?`<button class="btn-sm btn-unban" onclick="resolveReport('${id}')">✅ Пропустить</button>`:''}
+          ${r.msgAuthorId?`<button class="btn-sm btn-ban" onclick="banUserById('${r.msgAuthorId}')">🚫 Заблокировать</button>`:''}
+          <button class="btn-sm btn-del" onclick="deleteReport('${id}')">🗑 Удалить</button>
+        </div>
       </div>
     </div>`).join('');
+}
+
+async function banUserById(uid) {
+  const snap = await db.ref('users/'+uid).get();
+  const u = snap.val();
+  if(!u) return;
+  if(!confirm('Заблокировать '+u.displayName+'?')) return;
+  await Promise.all([
+    db.ref('banned/'+u.username).set({bannedAt:Date.now(),bannedBy:adminUser.username}),
+    db.ref('users/'+uid).update({isBanned:true})
+  ]);
+  alert(u.displayName+' заблокирован');
+  loadReports();
 }
 
 async function resolveReport(id) {
@@ -740,25 +761,4 @@ async function loadLogs() {
       <div style="flex:1">
         <div style="font-size:13px">${utils.escapeHtml(l.text||'')}</div>
         <div style="font-size:11px;color:var(--text3)">${new Date(l.ts).toLocaleString('ru-RU')} • @${l.by||'—'}</div>
-      </div>
-    </div>`).join('');
-}
-
-async function adminSendMsg(uid, displayName) {
-  const msg = prompt('Сообщение для ' + displayName + ':');
-  if(!msg||!msg.trim()) return;
-  const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
-  const dms = snap.val()||{};
-  let dmId = null;
-  for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
-  if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
-  await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
-  alert('Сообщение отправлено!');
-}
-function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
-document.getElementById('createChannelModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
-});
-</script>
-</body>
-</html>
+      <
