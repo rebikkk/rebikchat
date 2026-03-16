@@ -4,26 +4,7 @@
 (function() {
   'use strict';
 
-  // ── 1. Заглушить консоль ──────────────────
-  const noop = function() {};
-  const consoleMethods = ['log','warn','info','debug','dir','table','trace','group','groupEnd','time','timeEnd','assert','count','profile','profileEnd'];
-  consoleMethods.forEach(m => { try { console[m] = noop; } catch(e) {} });
-
-  // Переопределить через дескриптор (защита от восстановления)
-  try {
-    Object.defineProperty(window, 'console', {
-      get: function() {
-        return {
-          log: noop, warn: noop, info: noop, error: noop, debug: noop,
-          dir: noop, table: noop, trace: noop, group: noop, groupEnd: noop,
-          time: noop, timeEnd: noop, assert: noop, count: noop,
-          clear: noop, profile: noop, profileEnd: noop
-        };
-      },
-      set: function() {},
-      configurable: false
-    });
-  } catch(e) {}
+  // ── 1. Заглушить консоль — ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ОТЛАДКИ ──
 
   // ── 2. Анти-DevTools ─────────────────────
   // Метод через размер окна (срабатывает когда открыто dock)
