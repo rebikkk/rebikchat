@@ -298,7 +298,7 @@ select.finput{cursor:pointer;}
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchTab('chats')" id="tabChats">💬 Чаты</button>
     <button class="nav-tab" onclick="switchTab('channels')" id="tabChannels">📢 Каналы</button>
-    <button class="nav-tab" onclick="switchTab('dms')" id="tabDMs">✉️ ЛС</button>
+    <button class="nav-tab" onclick="switchTab('dms')" id="tabDms">✉️ ЛС</button>
   </div>
   <div class="list-wrap" id="listWrap">
     <!-- injected -->
@@ -319,7 +319,7 @@ select.finput{cursor:pointer;}
 <!-- MAIN -->
 <main class="main" id="mainArea">
   <!-- Welcome -->
-  <div class="welcome" id="welcomeScreen">
+  <div class="welcome" id="welcomeScreen"><button class="mob-menu-btn" style="position:absolute;top:12px;left:12px" onclick="toggleSidebar()">☰</button>
     <div class="welcome-icon">💬</div>
     <div style="font-size:16px;font-weight:500">Добро пожаловать в RebikChat</div>
     <div style="font-size:13px">Выбери чат, канал или напиши кому-нибудь</div>
@@ -521,6 +521,7 @@ select.finput{cursor:pointer;}
 <div class="toast" id="toast"></div>
 
 <!-- FIREBASE & APP -->
+<script src="security.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
