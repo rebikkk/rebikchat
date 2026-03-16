@@ -8,8 +8,9 @@ const FIREBASE_CONFIG = {
   appId: "1:683445862533:web:100a45ca6d425e0fd0e9ec"
 };
 
-const ADMIN_USERNAME = "rebik";
+// ADMIN_USERNAME removed — admin check is server-side (Firebase Rules)
 
+Object.freeze(FIREBASE_CONFIG);
 try { firebase.initializeApp(FIREBASE_CONFIG); } catch(e) {}
 const auth = firebase.auth();
 const db = firebase.database();
