@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RebikChat — Панель Администратора</title>
+<title>ReChat — Панель Администратора</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -342,8 +342,10 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('users')">👥 Пользователи</button>
-      <button class="tab" onclick="switchTab('channels')">📢 Каналы</button>
+      <button class="tab" onclick="switchTab('channels')">📢 Комнаты</button>
       <button class="tab" onclick="switchTab('banned')">🚫 Забаненные</button>
+      <button class="tab" onclick="switchTab('reports')">🚩 Жалобы</button>
+      <button class="tab" onclick="switchTab('logs')">📋 Логи</button>
     </div>
 
     <!-- Users Tab -->
@@ -360,7 +362,7 @@
               <th>Логин</th>
               <th>Статус</th>
               <th>Роль</th>
-              <th>Последний визит</th>
+              <th>Регистрация</th>
               <th>Действия</th>
             </tr>
           </thead>
@@ -392,6 +394,25 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+    <!-- Reports Tab -->
+    <div class="tab-content" id="tab-reports">
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">🚩 Жалобы пользователей</span></div>
+        <div id="reportsList"><div class="empty-state">Загрузка...</div></div>
+      </div>
+    </div>
+
+    <!-- Logs Tab -->
+    <div class="tab-content" id="tab-logs">
+      <div class="table-card">
+        <div class="table-header"><span class="table-title">📋 Лог событий</span></div>
+        <div id="logsList"><div class="empty-state">Загрузка...</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -437,19 +458,6 @@ let allUsers = {};
 let allChannels = {};
 let bannedUsers = {};
 
-function fmtLastSeen(ts) {
-  if(!ts) return '—';
-  const diff = Date.now() - ts;
-  const min = Math.floor(diff/60000);
-  const hrs = Math.floor(diff/3600000);
-  const days = Math.floor(diff/86400000);
-  if(diff < 60000) return 'только что';
-  if(min < 60) return min+' мин. назад';
-  if(hrs < 24) return hrs+' ч. назад';
-  if(days < 7) return days+' дн. назад';
-  return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
-}
-
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
   const snap = await db.ref('users/' + user.uid).get();
@@ -473,7 +481,7 @@ function loadData() {
   });
 
   // Channels
-  db.ref('channels').on('value', snap => {
+  db.ref('rooms').on('value', snap => {
     allChannels = snap.val() || {};
     renderStats();
     renderChannels();
@@ -533,7 +541,7 @@ function renderUsers(filter = '') {
         </span>
         ${isBanned ? '<span class="badge badge-red" style="margin-left:6px">🚫 Бан</span>' : ''}
       </td>
-      <td style="font-size:12px;color:var(--text2)">${u.status==='online'?'🟢 онлайн':u.lastSeen?fmtLastSeen(u.lastSeen):'—'}</td>
+      <td style="font-size:12px;color:var(--text2)">${u.status==='online'?'🟢 онлайн':(u.lastSeen?fmtLastSeen(u.lastSeen):'—')}</td>
       <td>
         <div class="action-btns">
           ${!isSelf && !u.isAdmin ? (isBanned
@@ -637,14 +645,13 @@ async function deleteUser(uid, displayName) {
 }
 
 async function deleteChannel(id, name) {
-  if (!confirm(`Удалить канал #${name} и ВСЕ сообщения в нём?`)) return;
-  await db.ref('channels/' + id).remove();
-  await db.ref('channels/' + id + '/messages').remove();
+  if (!confirm(`Удалить #${name} и ВСЕ сообщения в нём?`)) return;
+  await db.ref('rooms/' + id).remove();
 }
 
 async function clearChannel(id, name) {
   if (!confirm(`Очистить все сообщения в #${name}?`)) return;
-  await db.ref('channels/' + id + '/messages').remove();
+  await db.ref('rooms/' + id + '/msgs').remove();
 }
 
 // Channel creation
@@ -658,7 +665,7 @@ async function createChannel() {
   const icon = document.getElementById('newChannelIcon').value.trim() || '💬';
   if (!name) { alert('Введи название'); return; }
 
-  await db.ref('channels/' + name).set({
+  await db.ref('rooms/' + name).set({
     name, description: desc, icon,
     createdAt: Date.now(),
     order: Object.keys(allChannels).length
@@ -669,31 +676,83 @@ async function createChannel() {
 // Tabs
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach((t,i) => {
-    const tabs = ['users','channels','banned'];
+    const tabs = ['users','channels','banned','reports','logs'];
     t.classList.toggle('active', tabs[i] === name);
   });
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
+  if(name==='reports') loadReports();
+  if(name==='logs') loadLogs();
 }
 
 function filterUsers(query) { renderUsers(query.toLowerCase()); }
 
+function fmtLastSeen(ts) {
+  if(!ts) return '—';
+  const diff=Date.now()-ts, min=Math.floor(diff/60000), hrs=Math.floor(diff/3600000), days=Math.floor(diff/86400000);
+  if(diff<60000) return 'только что';
+  if(min<60) return min+' мин. назад';
+  if(hrs<24) return hrs+' ч. назад';
+  if(days<7) return days+' дн. назад';
+  return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
+
+async function loadReports() {
+  const snap = await db.ref('reports').orderByChild('ts').limitToLast(100).get();
+  const list = document.getElementById('reportsList');
+  const reports = snap.val()||{};
+  const entries = Object.entries(reports).sort((a,b)=>b[1].ts-a[1].ts);
+  if(!entries.length){ list.innerHTML='<div class="empty-state">Жалоб нет 🎉</div>'; return; }
+  const reasons = {spam:'Спам',porn:'Порнография',terror:'Терроризм',violence:'Насилие',fraud:'Мошенничество',hate:'Оскорбления',other:'Другое'};
+  list.innerHTML = entries.map(([id,r])=>`
+    <div class="ban-entry" style="flex-wrap:wrap;gap:8px">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:600">${reasons[r.reason]||r.reason} <span class="badge ${r.status==='new'?'badge-red':'badge-gray'}">${r.status==='new'?'Новая':'Обработана'}</span></div>
+        <div style="font-size:12px;color:var(--text3)">От @${r.byUsername||'—'} • ${new Date(r.ts).toLocaleString('ru-RU')}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px">${r.type}: ${r.targetId}${r.comment?' — '+utils.escapeHtml(r.comment):''}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${r.status==='new'?`<button class="btn-sm btn-unban" onclick="resolveReport('${id}')">✅ Обработать</button>`:''}
+        <button class="btn-sm btn-del" onclick="deleteReport('${id}')">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+async function resolveReport(id) {
+  await db.ref('reports/'+id+'/status').set('resolved');
+  loadReports();
+}
+async function deleteReport(id) {
+  await db.ref('reports/'+id).remove();
+  loadReports();
+}
+
+async function loadLogs() {
+  const snap = await db.ref('logs').limitToLast(200).get();
+  const list = document.getElementById('logsList');
+  const logs = snap.val()||{};
+  const entries = Object.entries(logs).sort((a,b)=>b[1].ts-a[1].ts);
+  if(!entries.length){ list.innerHTML='<div class="empty-state">Логов нет</div>'; return; }
+  const colors = {lj:'var(--green)',lm:'var(--accent)',lb:'var(--red)',lc:'var(--yellow)',le:'var(--text3)'};
+  list.innerHTML = entries.map(([,l])=>`
+    <div style="padding:8px 16px;border-bottom:1px solid rgba(30,45,69,.5);display:flex;align-items:center;gap:10px">
+      <div style="width:4px;height:36px;border-radius:2px;background:${colors[l.type]||'var(--text3)'}"></div>
+      <div style="flex:1">
+        <div style="font-size:13px">${utils.escapeHtml(l.text||'')}</div>
+        <div style="font-size:11px;color:var(--text3)">${new Date(l.ts).toLocaleString('ru-RU')} • @${l.by||'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
 async function adminSendMsg(uid, displayName) {
   const msg = prompt('Сообщение для ' + displayName + ':');
-  if(!msg || !msg.trim()) return;
+  if(!msg||!msg.trim()) return;
   const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
   const dms = snap.val()||{};
   let dmId = null;
-  for(const [id,dm] of Object.entries(dms)){
-    if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){ dmId=id; break; }
-  }
-  if(!dmId){
-    const ref = db.ref('dms').push(); dmId = ref.key;
-    await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()});
-  }
-  await db.ref('dms/'+dmId+'/msgs').push({
-    text:msg.trim(), uid:adminUser.uid, name:adminUser.displayName, ts:Date.now(), type:'text'
-  });
+  for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
+  if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
+  await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
   alert('Сообщение отправлено!');
 }
 function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
