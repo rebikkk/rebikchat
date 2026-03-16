@@ -95,10 +95,7 @@
     window.top.location = window.self.location;
   }
 
-  // ── 5. Защита от клонирования объектов через __proto__ ──
-  try {
-    Object.freeze(Object.prototype);
-  } catch(e) {}
+  // prototype freeze removed — breaks Firebase SDK
 
   // ── 6. Rate-limit для fetch/XHR (дополнительный слой) ──
   // Оборачиваем fetch чтобы не дать скриптам из консоли легко слать запросы
