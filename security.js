@@ -2,9 +2,9 @@
   'use strict';
 
   // ── Блок консоли ──────────────────────────
- /* const noop = function() {};
+  const noop = function() {};
   try {
-    Object.defineProperty(window, 'console', {
+/*    Object.defineProperty(window, 'console', {
       get: function() {
         return {
           log: noop, warn: noop, info: noop, error: noop,
@@ -16,7 +16,7 @@
       set: function() {},
       configurable: false
     });
-  } catch(e) {}*/
+  } catch(e) {}
 
   // ── Блок DevTools клавиш ──────────────────
   document.addEventListener('keydown', function(e) {
@@ -51,5 +51,5 @@
       document.querySelectorAll('input').forEach(el => el.value = '');
     }
   }, 1000);
-
+*/
 })();
