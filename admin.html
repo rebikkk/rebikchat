@@ -360,7 +360,7 @@
               <th>Логин</th>
               <th>Статус</th>
               <th>Роль</th>
-              <th>Регистрация</th>
+              <th>Последний визит</th>
               <th>Действия</th>
             </tr>
           </thead>
@@ -436,6 +436,19 @@ let adminUser = null;
 let allUsers = {};
 let allChannels = {};
 let bannedUsers = {};
+
+function fmtLastSeen(ts) {
+  if(!ts) return '—';
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff/60000);
+  const hrs = Math.floor(diff/3600000);
+  const days = Math.floor(diff/86400000);
+  if(diff < 60000) return 'только что';
+  if(min < 60) return min+' мин. назад';
+  if(hrs < 24) return hrs+' ч. назад';
+  if(days < 7) return days+' дн. назад';
+  return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
 
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.href = 'index.html'; return; }
@@ -520,7 +533,7 @@ function renderUsers(filter = '') {
         </span>
         ${isBanned ? '<span class="badge badge-red" style="margin-left:6px">🚫 Бан</span>' : ''}
       </td>
-      <td style="font-size:12px;color:var(--text2)">${regDate}</td>
+      <td style="font-size:12px;color:var(--text2)">${u.status==='online'?'🟢 онлайн':u.lastSeen?fmtLastSeen(u.lastSeen):'—'}</td>
       <td>
         <div class="action-btns">
           ${!isSelf && !u.isAdmin ? (isBanned
@@ -529,6 +542,7 @@ function renderUsers(filter = '') {
           ) : ''}
           ${!isSelf && !u.isAdmin ? `<button class="btn-sm btn-promote" onclick="toggleAdmin('${u.uid}', ${u.isAdmin})">⬆️ Промоут</button>` : ''}
           ${!isSelf ? `<button class="btn-sm btn-del" onclick="deleteUser('${u.uid}','${utils.escapeHtml(u.displayName)}')">🗑</button>` : ''}
+          ${!isSelf ? `<button class="btn-sm" style="background:rgba(59,130,246,.15);color:var(--accent2);border:1px solid rgba(59,130,246,.25)" onclick="adminSendMsg('${u.uid}','${utils.escapeHtml(u.displayName)}')">✉️</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -569,7 +583,7 @@ function renderBanned() {
   }
 
   list.innerHTML = banned.map(([username, data]) => {
-    const date = new Date(data.bannedAt).toLocaleString('ru-RU');
+    const date = data.bannedAt ? new Date(data.bannedAt).toLocaleString('ru-RU') : '—';
     return `<div class="ban-entry">
       <div class="user-cell-avatar">${username.charAt(0).toUpperCase()}</div>
       <div style="flex:1">
@@ -663,6 +677,25 @@ function switchTab(name) {
 }
 
 function filterUsers(query) { renderUsers(query.toLowerCase()); }
+
+async function adminSendMsg(uid, displayName) {
+  const msg = prompt('Сообщение для ' + displayName + ':');
+  if(!msg || !msg.trim()) return;
+  const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
+  const dms = snap.val()||{};
+  let dmId = null;
+  for(const [id,dm] of Object.entries(dms)){
+    if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){ dmId=id; break; }
+  }
+  if(!dmId){
+    const ref = db.ref('dms').push(); dmId = ref.key;
+    await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()});
+  }
+  await db.ref('dms/'+dmId+'/msgs').push({
+    text:msg.trim(), uid:adminUser.uid, name:adminUser.displayName, ts:Date.now(), type:'text'
+  });
+  alert('Сообщение отправлено!');
+}
 function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
 document.getElementById('createChannelModal').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
