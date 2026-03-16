@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RebikChat — Войти</title>
+<title>ReChat — Войти</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -238,7 +238,7 @@
 <div class="container">
   <div class="logo">
     <div class="logo-icon">💬</div>
-    <h1>RebikChat</h1>
+    <h1>ReChat</h1>
     <p>// защищённый мессенджер</p>
   </div>
 
@@ -333,16 +333,11 @@
       if (!snap.exists()) { showError(errEl, 'Пользователь не найден'); resetBtn(btn, 'Войти'); return; }
 
       const email = snap.val();
-
       await auth.signInWithEmailAndPassword(email, password);
-
-      // Проверка бана после входа (требует auth)
       const banSnap = await db.ref('banned/' + username).get();
       if (banSnap.exists()) {
         showError(errEl, '🚫 Аккаунт заблокирован администратором');
-        await auth.signOut();
-        resetBtn(btn, 'Войти');
-        return;
+        await auth.signOut(); resetBtn(btn, 'Войти'); return;
       }
       // onAuthStateChanged перенаправит
     } catch(e) {
