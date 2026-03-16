@@ -288,7 +288,6 @@
   </div>
 </div>
 
-<script src="security.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -334,16 +333,15 @@
 
       const email = snap.val();
 
-      await auth.signInWithEmailAndPassword(email, password);
-
-      // Проверка бана после входа (требует auth)
+      // Проверка бана
       const banSnap = await db.ref('banned/' + username).get();
       if (banSnap.exists()) {
         showError(errEl, '🚫 Аккаунт заблокирован администратором');
-        await auth.signOut();
         resetBtn(btn, 'Войти');
         return;
       }
+
+      await auth.signInWithEmailAndPassword(email, password);
       // onAuthStateChanged перенаправит
     } catch(e) {
       const msgs = {
@@ -375,7 +373,7 @@
 
     // Запрещённые имена
     const reserved = ['admin', 'system', 'bot', 'moderator'];
-    if (reserved.includes(username)) {
+    if (reserved.includes(username) && username !== ADMIN_USERNAME.toLowerCase()) {
       showError(errEl, 'Это имя зарезервировано'); return;
     }
 
@@ -391,7 +389,7 @@
       const fakeEmail = `${username}@rebikchat-user.com`;
       const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
       const uid = cred.user.uid;
-      const isAdmin = false;
+      const isAdmin = username === ADMIN_USERNAME.toLowerCase();
 
       // Сохраняем данные пользователя
       await Promise.all([
