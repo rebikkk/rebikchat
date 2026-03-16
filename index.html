@@ -337,15 +337,17 @@
 
       const email = snap.val();
 
-      // Проверка бана
+      // Входим сначала, потом проверяем бан (banned требует auth)
+      await auth.signInWithEmailAndPassword(email, password);
+
+      // Проверка бана после входа
       const banSnap = await db.ref('banned/' + username).get();
       if (banSnap.exists()) {
         showError(errEl, '🚫 Аккаунт заблокирован администратором');
+        await auth.signOut();
         resetBtn(btn, 'Войти');
         return;
       }
-
-      await auth.signInWithEmailAndPassword(email, password);
       // onAuthStateChanged перенаправит
     } catch(e) {
       const msgs = {
