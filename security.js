@@ -4,7 +4,7 @@
   // ── Блок консоли ──────────────────────────
   const noop = function() {};
   try {
-/*    Object.defineProperty(window, 'console', {
+    Object.defineProperty(window, 'console', {
       get: function() {
         return {
           log: noop, warn: noop, info: noop, error: noop,
@@ -51,5 +51,5 @@
       document.querySelectorAll('input').forEach(el => el.value = '');
     }
   }, 1000);
-*/
+
 })();
