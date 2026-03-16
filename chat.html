@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ReChat</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -13,7 +13,7 @@
   --text:#e2e8f0;--text2:#94a3b8;--text3:#475569;--online:#22c55e;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden;}
+body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;overflow:hidden;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
 
@@ -279,6 +279,41 @@ select.finput{cursor:pointer;}
   .mob-menu-btn{display:flex;}
   .sidebar-overlay.show{display:block;}
   .log-panel,.members-panel{display:none!important;}
+  /* Инпут - фиксируем чтобы не уезжал при открытии клавиатуры */
+  .input-wrap{position:sticky;bottom:0;z-index:10;background:var(--surface);}
+  .msgs{-webkit-overflow-scrolling:touch;padding-bottom:8px;}
+  /* Увеличить кнопки для тапа */
+  .send-btn{width:40px;height:40px;font-size:18px;}
+  .emo-btn{width:36px;height:36px;font-size:18px;}
+  .msg-input{font-size:16px;} /* 16px чтобы iOS не зумил */
+  /* Контекстное меню - снизу на мобиле */
+  .ctx{position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    top:auto!important;width:100%!important;border-radius:18px 18px 0 0!important;
+    min-width:unset!important;padding:8px 0 calc(8px + env(safe-area-inset-bottom))!important;
+    box-shadow:0 -4px 30px rgba(0,0,0,.5)!important;}
+  .ci{padding:14px 20px;font-size:15px;}
+  .cdiv{margin:4px 0;}
+  /* Реакции в ctx */
+  .ctx-reactions{display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border);}
+  .ctx-react-btn{font-size:24px;background:none;border:none;cursor:pointer;padding:4px;border-radius:8px;transition:transform .15s;}
+  .ctx-react-btn:active{transform:scale(1.3);}
+  /* Шапка ctx */
+  .ctx-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:6px auto 10px;display:block;}
+  .ctx-msg-preview{padding:6px 16px 10px;font-size:12px;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Bubble tappable */
+  .bubble{user-select:none;-webkit-user-select:none;}
+  .msg-row{min-height:44px;}
+  /* Убрать hover эффекты на мобиле */
+  .msg-acts{display:none!important;}
+  /* Welcome кнопка меню */
+  .mob-welcome-btn{display:flex;}
+}
+@media(min-width:769px){
+  .ctx-reactions{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);}
+  .ctx-react-btn{font-size:20px;background:none;border:none;cursor:pointer;padding:3px 5px;border-radius:6px;transition:all .12s;}
+  .ctx-react-btn:hover{background:var(--surface2);transform:scale(1.15);}
+  .ctx-handle,.ctx-msg-preview{display:none;}
+  .mob-welcome-btn{display:none;}
 }
 </style>
 </head>
@@ -339,6 +374,7 @@ select.finput{cursor:pointer;}
         <div class="online-pill" id="onlinePill"></div>
         <button class="ibtn" title="Участники" onclick="toggleMembersPanel()" id="membersBtn">👥</button>
         <button class="ibtn" title="Голосование" id="pollBtn" onclick="openPoll()" style="display:none">📊</button>
+        <div id="header-acts-extra" style="display:none;gap:2px"></div>
       </div>
     </div>
 
@@ -511,14 +547,26 @@ select.finput{cursor:pointer;}
 
 <!-- Context Menu -->
 <div class="ctx" id="ctx">
+  <span class="ctx-handle"></span>
+  <div class="ctx-msg-preview" id="ctxMsgPreview"></div>
+  <div class="ctx-reactions">
+    <button class="ctx-react-btn" onclick="ctxReact('👍')" title="👍">👍</button>
+    <button class="ctx-react-btn" onclick="ctxReact('❤️')" title="❤️">❤️</button>
+    <button class="ctx-react-btn" onclick="ctxReact('😂')" title="😂">😂</button>
+    <button class="ctx-react-btn" onclick="ctxReact('😮')" title="😮">😮</button>
+    <button class="ctx-react-btn" onclick="ctxReact('😢')" title="😢">😢</button>
+    <button class="ctx-react-btn" onclick="ctxReact('🔥')" title="🔥">🔥</button>
+    <button class="ctx-react-btn" onclick="ctxReact('👎')" title="👎">👎</button>
+  </div>
   <div class="ci" onclick="ctxReply()">↩️ Ответить</div>
   <div class="ci" onclick="ctxCopy()">📋 Копировать</div>
   <div class="ci" id="ctxEditBtn" onclick="ctxEdit()" style="display:none">✏️ Редактировать</div>
+  <div class="ci" id="ctxReportBtn" onclick="ctxReport()">🚩 Пожаловаться</div>
   <div class="cdiv"></div>
   <div class="ci d" id="ctxDelBtn" onclick="ctxDel()" style="display:none">🗑 Удалить</div>
   <div class="ci d" id="ctxBanBtn" onclick="ctxBan()" style="display:none">🚫 Заблокировать</div>
-  <div class="ci" id="ctxPromBtn" onclick="ctxProm()" style="display:none">⭐ Назначить админа</div>
-  <div class="ci" id="ctxDemBtn" onclick="ctxDem()" style="display:none">↓ Снять с админа</div>
+  <div class="ci" id="ctxPromBtn" onclick="ctxProm()" style="display:none">⭐ Назначить мода</div>
+  <div class="ci" id="ctxDemBtn" onclick="ctxDem()" style="display:none">↓ Снять с мода</div>
 </div>
 
 <!-- Toast -->
@@ -605,11 +653,15 @@ function loadAllUsers(){
   });
 }
 function loadRooms(){
-  db.ref('rooms').on('value', snap => { allRooms=snap.val()||{}; renderList(); });
+  db.ref('rooms').on('value', snap => { allRooms=snap.val()||{}; renderList(); if(me) setTimeout(showRecommendedChannels,1500); });
 }
+let cachedDms = {};
 function loadDms(){
   if(!me) return;
-  db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).on('value', snap => { renderList(); });
+  db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).on('value', snap => {
+    cachedDms = snap.val()||{};
+    renderList();
+  });
 }
 
 // ══ SIDEBAR ══
@@ -662,8 +714,8 @@ function renderList(filter=''){
     newBtn.innerHTML=`<div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:14px">+</div><span class="item-name" style="font-size:12px">Новый диалог</span>`;
     wrap.appendChild(newBtn);
 
-    db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get().then(snap=>{
-      const dms=snap.val()||{};
+    {
+      const dms=cachedDms;
       Object.entries(dms).forEach(([dmId,dm])=>{
         if(dm.deleted&&dm.deleted[me.uid]) return;
         const otherUid=Object.keys(dm.p||{}).find(uid=>uid!==me.uid);
@@ -681,7 +733,7 @@ function renderList(filter=''){
         li.innerHTML=`<div class="dm-av">${avatarOf(u)}<div class="dot ${isOn?'on':''}"></div></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;justify-content:space-between"><span class="item-name">${esc(u.displayName)}</span>${unreadBadge}</div><div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lastMsg.text?esc(lastMsg.text.substring(0,30)):''}</div></div>`;
         wrap.appendChild(li);
       });
-    });
+    }
   }
 }
 function onSearch(v){ renderList(v); }
@@ -713,6 +765,7 @@ function openRoom(id){
   // Просмотры канала
   if(r.type==='channel') db.ref('rooms/'+id+'/views/'+me.uid).set(true);
 
+  const extraActs=$('header-acts-extra'); if(extraActs){extraActs.innerHTML='';extraActs.style.display='none';}
   updateActiveNav(); showChat();
   loadMessages('rooms/'+id+'/msgs');
   listenTyping(id);
@@ -736,6 +789,13 @@ function openDm(dmId,otherUser){
   // Сбросить счётчик непрочитанных
   db.ref('dms/'+dmId+'/unread/'+me.uid).remove();
 
+  // Добавить кнопку удалить диалог в actions шапки
+  const headerActs = $('header-acts-extra');
+  if(headerActs){
+    headerActs.innerHTML = `<button class="ibtn" title="Удалить диалог" onclick="openDeleteDm()" style="color:var(--red)">🗑</button>
+    <button class="ibtn" title="Пожаловаться" onclick="openReport('user','${curDmOther.uid}','${curDmOther.displayName}')">🚩</button>`;
+    headerActs.style.display='flex';
+  }
   updateActiveNav(); showChat();
   loadMessages('dms/'+dmId+'/msgs');
   updateOnline();
@@ -845,7 +905,19 @@ function renderMsg(id,msg,container,showHead){
       <button class="act" onclick="openReport('msg','${id}')">🚩</button>
     </div>`;
 
+  // ПКМ на десктопе
   row.addEventListener('contextmenu',e=>{e.preventDefault();openCtx(e,id,msg);});
+  // Долгое нажатие на мобиле
+  let _lpt=null;
+  row.addEventListener('touchstart',e=>{
+    _lpt=setTimeout(()=>{
+      e.preventDefault();
+      const t=e.touches[0];
+      openCtx({clientX:t.clientX,clientY:t.clientY},id,msg);
+    },500);
+  },{passive:true});
+  row.addEventListener('touchend',()=>{clearTimeout(_lpt);});
+  row.addEventListener('touchmove',()=>{clearTimeout(_lpt);});
   grp.appendChild(row);
   container.appendChild(grp);
 
@@ -1265,8 +1337,7 @@ function applyWallpaper(w){
 // ══ ROOM INFO ══
 function openCurrentInfo(){
   if(isDm&&curDmOther){
-    // Показать меню диалога
-    if(confirm('Удалить этот диалог у себя?')) deleteDmForMe();
+    viewProfile(curDmOther.uid);
     return;
   }
   if(!curRoom||!allRooms[curRoom]) return;
@@ -1384,6 +1455,9 @@ async function submitReport(){
 
 // ══ CONTEXT MENU ══
 function openCtx(e,mid,msg){
+  // Превью сообщения
+  const preview=$('ctxMsgPreview');
+  if(preview) preview.textContent=(msg.text||'').substring(0,60);
   ctxMsgId=mid; ctxMsgAuthorId=msg.uid; ctxMsgText=msg.text||''; ctxMsgOwn=msg.uid===me.uid;
   $('ctxDelBtn').style.display=(ctxMsgOwn||me.isAdmin||isRoomAdmin(curRoom))?'flex':'none';
   $('ctxEditBtn').style.display=ctxMsgOwn?'flex':'none';
@@ -1395,9 +1469,24 @@ function openCtx(e,mid,msg){
   posCtx(e);
 }
 function openCtxUser(e,u){ctxMsgAuthorId=u.uid;ctxMsgOwn=false;$('ctxDelBtn').style.display='none';$('ctxEditBtn').style.display='none';$('ctxBanBtn').style.display=me.isAdmin?'flex':'none';const isRAdm=allRooms[curRoom]&&allRooms[curRoom].admins&&allRooms[curRoom].admins[u.uid];$('ctxPromBtn').style.display=(!isRAdm&&(me.isAdmin||isRoomAdmin(curRoom)))?'flex':'none';$('ctxDemBtn').style.display=(isRAdm&&(me.isAdmin||isRoomAdmin(curRoom)))?'flex':'none';posCtx(e);}
-function posCtx(e){const m=$('ctx');m.style.left=Math.min(e.clientX,innerWidth-165)+'px';m.style.top=Math.min(e.clientY,innerHeight-160)+'px';m.classList.add('show');}
+function posCtx(e){
+  const m=$('ctx');
+  if(window.innerWidth<=768){
+    // На мобиле - снизу, css уже позиционирует
+    m.style.left=''; m.style.top=''; m.style.right=''; m.style.bottom='';
+  } else {
+    m.style.left=Math.min(e.clientX,innerWidth-200)+'px';
+    m.style.top=Math.min(e.clientY,innerHeight-280)+'px';
+    m.style.right=''; m.style.bottom='';
+  }
+  m.classList.add('show');
+}
 function closeCtx(){$('ctx').classList.remove('show');}
-document.addEventListener('click',closeCtx);
+function ctxReact(emoji){doReact(ctxMsgId,emoji);closeCtx();}
+function ctxReport(){closeCtx();openReport('msg',ctxMsgId,(ctxMsgText||'').substring(0,40));}
+document.addEventListener('click',e=>{if(!e.target.closest('#ctx'))closeCtx();});
+// Закрыть ctx при скролле на мобиле
+document.getElementById('msgsContainer')&&document.getElementById('msgsContainer').addEventListener('scroll',closeCtx);
 
 function ctxReply(){closeCtx();setReply(ctxMsgId,'пользователь',ctxMsgText.substring(0,60));}
 function ctxCopy(){navigator.clipboard.writeText(ctxMsgText);toast('Скопировано','info');closeCtx();}
@@ -1443,6 +1532,50 @@ function listenLog(){
 }
 function toggleLog(){if(!me||!me.isAdmin){toast('Только для администратора','err');return;}$('logPanel').classList.toggle('show');}
 
+// ══ CHANNEL RECOMMENDATIONS ══
+async function showRecommendedChannels(){
+  if(!me) return;
+  // Показать только новым пользователям
+  if(!me.isNewUser) return;
+
+  // Загрузить рекомендованные каналы (те что помечены recommended:true)
+  const snap = await db.ref('rooms').orderByChild('recommended').equalTo(true).get();
+  const channels = snap.val()||{};
+  const entries = Object.entries(channels).filter(([,r])=>r.type==='channel');
+  if(!entries.length) return;
+
+  const list = $('recommendList');
+  list.innerHTML = '';
+  entries.forEach(([id,r])=>{
+    const div = document.createElement('div');
+    div.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px';
+    div.innerHTML=`
+      <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${r.avatarData?`<img src="${r.avatarData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(r.icon||'📢')}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
+        <div style="font-size:12px;color:var(--text2)">${esc(r.desc||'')}</div>
+        <div style="font-size:11px;color:var(--text3)">${Object.keys(r.subscribers||{}).length} подписчиков</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button onclick="subscribeRecommended('${id}',this)" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Onest',sans-serif">Подписаться</button>
+        <button onclick="this.closest('[style]').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;font-family:'Onest',sans-serif">Пропустить</button>
+      </div>`;
+    list.appendChild(div);
+  });
+
+  $('recommendModal').classList.add('show');
+}
+async function subscribeRecommended(channelId, btn){
+  await db.ref('rooms/'+channelId+'/subscribers/'+me.uid).set(true);
+  btn.textContent='✓ Подписан'; btn.style.background='var(--green)'; btn.disabled=true;
+}
+function closeRecommendations(){
+  $('recommendModal').classList.remove('show');
+  // Убрать флаг нового пользователя
+  db.ref('users/'+me.uid+'/isNewUser').remove();
+  me.isNewUser=false;
+}
+
 // ══ TOAST ══
 let toastTimer=null;
 function toast(msg,type='ok'){
@@ -1456,6 +1589,54 @@ function closeOverlay(id){$(id).classList.remove('show');}
 document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');}));
 function toggleSidebar(){$('sidebar').classList.toggle('open');$('sidebarOverlay').classList.toggle('show');}
 function closeSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('show');}
+
+
+// ══ RECOMMENDED CHANNELS ══
+async function showRecommendedChannels(){
+  // Показывать только при первом входе
+  const shownKey = 'rechat_recommend_shown_'+me.uid;
+  if(localStorage.getItem(shownKey)) return;
+
+  // Найти каналы помеченные как рекомендованные
+  const recommended = Object.entries(allRooms)
+    .filter(([,r]) => r.type==='channel' && r.recommended)
+    .slice(0, 5);
+
+  if(!recommended.length) return;
+
+  const list = $('recommendList');
+  list.innerHTML = '';
+  recommended.forEach(([id, r]) => {
+    const alreadySub = r.subscribers && r.subscribers[me.uid];
+    if(alreadySub) return;
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:8px';
+    item.innerHTML = `
+      <span style="font-size:24px">${r.icon||'📢'}</span>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(r.desc||'')} • ${Object.keys(r.subscribers||{}).length} подписчиков</div>
+      </div>
+      <button class="mbtn mbtn-p" style="padding:6px 14px;font-size:12px;white-space:nowrap" onclick="subscribeRecommend('${id}',this)">Подписаться</button>
+    `;
+    list.appendChild(item);
+  });
+
+  if(!list.children.length) return;
+  $('recommendModal').classList.add('show');
+}
+
+async function subscribeRecommend(roomId, btn){
+  await db.ref('rooms/'+roomId+'/subscribers/'+me.uid).set(true);
+  btn.textContent = '✓ Подписан';
+  btn.disabled = true;
+  btn.style.background = 'var(--green)';
+}
+
+function closeRecommend(){
+  $('recommendModal').classList.remove('show');
+  localStorage.setItem('rechat_recommend_shown_'+me.uid, '1');
+}
 
 const urlJoin=new URLSearchParams(location.search).get('join');
 if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);});}
