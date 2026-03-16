@@ -2,6 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self';">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ReChat — Панель Администратора</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -758,12 +761,4 @@ async function adminSendMsg(uid, displayName) {
   for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
   if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
   await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
-  alert('Сообщение отправлено!');
-}
-function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
-document.getElementById('createChannelModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
-});
-</script>
-</body>
-</html>
+ 
