@@ -97,26 +97,4 @@
 
   // prototype freeze removed — breaks Firebase SDK
 
-  // ── 6. Rate-limit для fetch/XHR (дополнительный слой) ──
-  // Оборачиваем fetch чтобы не дать скриптам из консоли легко слать запросы
-  const _fetch = window.fetch;
-  window.fetch = function(url, opts) {
-    // Разрешать только firebase и gstatic
-    const allowed = [
-      'firebasedatabase.app',
-      'googleapis.com',
-      'gstatic.com',
-      'google.com',
-      'firebaseapp.com'
-    ];
-    if (typeof url === 'string') {
-      const isRelative = !url.startsWith('http');
-      const isAllowed = allowed.some(d => url.includes(d));
-      if (!isRelative && !isAllowed) {
-        return Promise.reject(new Error('Blocked'));
-      }
-    }
-    return _fetch.apply(this, arguments);
-  };
-
 })();
