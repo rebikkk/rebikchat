@@ -434,23 +434,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script>
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCdYfL_Ifl_AzVVYNT_opjRUbF6ln2NehI",
-  authDomain: "rebikchat.firebaseapp.com",
-  databaseURL: "https://rebikchat-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "rebikchat",
-  storageBucket: "rebikchat.firebasestorage.app",
-  messagingSenderId: "683445862533",
-  appId: "1:683445862533:web:100a45ca6d425e0fd0e9ec"
-};
-const ADMIN_USERNAME = "rebik";
-try { firebase.initializeApp(FIREBASE_CONFIG); } catch(e) {}
-const auth = firebase.auth();
-const db = firebase.database();
-const utils = {
-  escapeHtml(text) { const d=document.createElement('div'); d.appendChild(document.createTextNode(text)); return d.innerHTML; }
-};
+const utils = { escapeHtml(t){ const d=document.createElement("div"); d.appendChild(document.createTextNode(t)); return d.innerHTML; } };
 </script>
 <script>
 let adminUser = null;
@@ -761,4 +747,18 @@ async function loadLogs() {
       <div style="flex:1">
         <div style="font-size:13px">${utils.escapeHtml(l.text||'')}</div>
         <div style="font-size:11px;color:var(--text3)">${new Date(l.ts).toLocaleString('ru-RU')} • @${l.by||'—'}</div>
-      <
+      </div>
+    </div>`).join('');
+}
+
+async function adminSendMsg(uid, displayName) {
+  const msg = prompt('Сообщение для ' + displayName + ':');
+  if(!msg||!msg.trim()) return;
+  const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
+  const dms = snap.val()||{};
+  let dmId = null;
+  for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
+  if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
+  await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
+  alert('Сообщение отправлено!');
+}
