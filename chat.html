@@ -319,7 +319,7 @@ select.finput{cursor:pointer;}
 <!-- MAIN -->
 <main class="main" id="mainArea">
   <!-- Welcome -->
-  <div class="welcome" id="welcomeScreen"><button class="mob-menu-btn" style="position:absolute;top:12px;left:12px" onclick="toggleSidebar()">☰</button>
+  <div class="welcome" id="welcomeScreen"><button class="mob-menu-btn" style="position:absolute;top:12px;left:12px;display:flex" onclick="toggleSidebar()">☰</button>
     <div class="welcome-icon">💬</div>
     <div style="font-size:16px;font-weight:500">Добро пожаловать в RebikChat</div>
     <div style="font-size:13px">Выбери чат, канал или напиши кому-нибудь</div>
@@ -414,6 +414,10 @@ select.finput{cursor:pointer;}
       <img id="epAvatarImg" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">
       <span style="font-size:12px;color:var(--green)">✓ Фото выбрано</span>
     </div>
+    <label class="flabel" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" id="epHideLastSeen" style="width:15px;height:15px;accent-color:var(--accent)">
+      <span>👁 Скрыть время последнего визита</span>
+    </label>
     <label class="flabel" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
       <input type="checkbox" id="epVerified" style="width:15px;height:15px;accent-color:var(--accent)">
       <span>✅ Верифицировать мой аккаунт (только владелец чата)</span>
@@ -549,6 +553,18 @@ const db   = firebase.database();
 const $ = id => document.getElementById(id);
 const esc = t => { if(!t) return ''; const d=document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; };
 const fmtTime = ts => { const d=new Date(ts); return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); };
+const fmtLastSeen = ts => {
+  if(!ts) return 'давно';
+  const diff = Date.now() - ts;
+  const min = Math.floor(diff/60000);
+  const hrs = Math.floor(diff/3600000);
+  const days = Math.floor(diff/86400000);
+  if(diff < 60000) return 'только что';
+  if(min < 60) return `${min} мин. назад`;
+  if(hrs < 24) return `${hrs} ч. назад`;
+  if(days < 7) return `${days} дн. назад`;
+  return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+};
 const fmtDate = ts => {
   const d=new Date(ts), t=new Date(), y=new Date(t);
   y.setDate(y.getDate()-1);
@@ -718,6 +734,7 @@ function renderList(filter=''){
         if(!otherUid) return;
         const u = allUsers[otherUid];
         if(!u) return;
+        if(!u||!u.username||!u.displayName) return;
         if(q && !u.username.includes(q) && !u.displayName.toLowerCase().includes(q)) return;
         const li = document.createElement('div');
         li.className = 'list-item' + (curRoom===dmId&&isDm?' active':'');
@@ -800,7 +817,7 @@ function updateActiveNav(){
 }
 
 function updateOnline(){
-  const online = Object.values(allUsers).filter(u=>u.status==='online').length;
+  const online = Object.values(allUsers).filter(u=>u&&u.status==='online').length;
   $('onlinePill').textContent = online + ' онлайн';
 }
 
@@ -945,6 +962,12 @@ async function sendMsg(){
 
   const banSnap = await db.ref('banned/'+me.username).get();
   if(banSnap.exists()) return;
+
+  // Проверка личной блокировки в ЛС
+  if(isDm && curDmOther){
+    const theirBlocks = (allUsers[curDmOther.uid]&&allUsers[curDmOther.uid].blockedUsers)||{};
+    if(theirBlocks[me.uid]){ toast('Пользователь заблокировал тебя','err'); return; }
+  }
 
   // Readonly check
   if(!isDm && curRoom && allRooms[curRoom]){
@@ -1122,7 +1145,7 @@ function searchUsers(q){
   if(q.length<1) return;
   const ql=q.toLowerCase();
   Object.values(allUsers)
-    .filter(u=>u&&u.uid!==me.uid&&u.username&&u.displayName&&(u.username.includes(ql)||u.displayName.toLowerCase().includes(ql)))
+    .filter(u=>u&&u.uid&&u.uid!==me.uid&&u.username&&u.displayName&&(u.username.includes(ql)||u.displayName.toLowerCase().includes(ql)))
     .slice(0,8)
     .forEach(u=>{
       const d=document.createElement('div');
@@ -1148,7 +1171,7 @@ async function startDm(){
   if(target.uid===me.uid){ toast('Нельзя написать себе 😄','err'); return; }
 
   // Find or create DM
-  const snap = await db.ref('dms').get();
+  const snap = await db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get();
   const dms = snap.val()||{};
   let dmId = null;
   for(const [id,dm] of Object.entries(dms)){
@@ -1220,21 +1243,43 @@ function viewProfile(uid){
   $('ppTag').textContent='@'+u.username;
   $('ppBio').textContent=u.bio||'';
   const joinDate=u.createdAt?new Date(u.createdAt).toLocaleDateString('ru-RU',{month:'long',year:'numeric'}):'—';
-  $('ppStats').innerHTML=`<div class="stat-item"><div class="stat-val">${u.status==='online'?'<span style="color:var(--green)">●</span>':'<span style="color:var(--text3)">●</span>'}</div><div class="stat-lbl">${u.status==='online'?'Онлайн':'Оффлайн'}</div></div><div class="stat-item"><div class="stat-val" style="font-size:13px">${joinDate}</div><div class="stat-lbl">Регистрация</div></div>`;
+  const lastSeenStr = u.status==='online' ? '🟢 Онлайн' : ('был(а) '+fmtLastSeen(u.lastSeen));
+  const hideLastSeen = u.hideLastSeen && u.uid !== me.uid;
+  $('ppStats').innerHTML=`<div class="stat-item"><div class="stat-val">${u.status==='online'?'<span style="color:var(--green)">●</span>':'<span style="color:var(--text3)">●</span>'}</div><div class="stat-lbl">${hideLastSeen?'Оффлайн':lastSeenStr}</div></div><div class="stat-item"><div class="stat-val" style="font-size:13px">${joinDate}</div><div class="stat-lbl">Регистрация</div></div>`;
 
   const acts=$('ppActs'); acts.innerHTML='';
   if(!isSelf){
     const dmBtn=document.createElement('button'); dmBtn.className='pp-btn pp-btn-p'; dmBtn.textContent='💬 Написать';
     dmBtn.onclick=async()=>{
-      const snap=await db.ref('dms').get(); const dms=snap.val()||{};
+      const snap=await db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get(); const dms=snap.val()||{};
       let dmId=null;
       for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[me.uid]&&dm.p[uid]){dmId=id;break;} }
       if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[me.uid]:true,[uid]:true},createdAt:Date.now()}); }
       closeProfilePage(); openDm(dmId,u);
     };
     acts.appendChild(dmBtn);
+    // Кнопка личной блокировки (любой пользователь)
+    const myBlocks = me.blockedUsers||{};
+    const isBlocked = myBlocks[uid];
+    const blockBtn=document.createElement('button');
+    blockBtn.className='pp-btn pp-btn-d';
+    blockBtn.textContent = isBlocked ? '✅ Разблокировать' : '🚫 Заблокировать';
+    blockBtn.onclick=async()=>{
+      if(isBlocked){
+        await db.ref('users/'+me.uid+'/blockedUsers/'+uid).remove();
+        me.blockedUsers = me.blockedUsers||{}; delete me.blockedUsers[uid];
+        toast(u.displayName+' разблокирован','ok');
+      } else {
+        if(!confirm('Заблокировать '+u.displayName+'? Он не сможет писать тебе в ЛС.')) return;
+        await db.ref('users/'+me.uid+'/blockedUsers/'+uid).set(true);
+        me.blockedUsers = me.blockedUsers||{}; me.blockedUsers[uid]=true;
+        toast(u.displayName+' заблокирован','ok');
+      }
+      closeProfilePage();
+    };
+    acts.appendChild(blockBtn);
     if(me.isAdmin){
-      const banBtn=document.createElement('button'); banBtn.className='pp-btn pp-btn-d'; banBtn.textContent='🚫 Заблокировать';
+      const banBtn=document.createElement('button'); banBtn.className='pp-btn pp-btn-d'; banBtn.textContent='👑 Бан (админ)';
       banBtn.onclick=async()=>{ if(confirm('Заблокировать '+u.displayName+'?')){ await db.ref('banned/'+u.username).set({at:Date.now(),by:me.username}); await db.ref('users/'+uid).update({isBanned:true}); addLog('lb','Бан: '+u.displayName); toast(u.displayName+' заблокирован','ok'); closeProfilePage(); } };
       acts.appendChild(banBtn);
     }
@@ -1263,6 +1308,7 @@ function openMyProfile(){
   $('epBio').value=me.bio||'';
   $('epVerified').checked=me.verified||false;
   $('epVerified').disabled=!me.isAdmin;
+  $('epHideLastSeen').checked=me.hideLastSeen||false;
   pendingAvatar=null;
   $('epAvatarPrev').style.display='none';
   $('editProfileModal').classList.add('show');
@@ -1281,11 +1327,11 @@ function loadAvatar(e){
 async function saveMyProfile(){
   const name=$('epName').value.trim(); if(!name){ toast('Имя не может быть пустым','err'); return; }
   const bio=$('epBio').value.trim();
-  const updates={displayName:name,bio};
+  const updates={displayName:name,bio,hideLastSeen:$('epHideLastSeen').checked};
   if(pendingAvatar) updates.avatarData=pendingAvatar;
   if(me.isAdmin) updates.verified=$('epVerified').checked;
   await db.ref('users/'+me.uid).update(updates);
-  me.displayName=name; me.bio=bio; if(pendingAvatar) me.avatarData=pendingAvatar; if(me.isAdmin) me.verified=$('epVerified').checked;
+  me.displayName=name; me.bio=bio; me.hideLastSeen=$('epHideLastSeen').checked; if(pendingAvatar) me.avatarData=pendingAvatar; if(me.isAdmin) me.verified=$('epVerified').checked;
   renderSelf(); closeOverlay('editProfileModal'); toast('Профиль обновлён!','ok');
 }
 
