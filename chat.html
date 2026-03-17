@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
+<meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <title>ReChat</title>
@@ -771,7 +772,8 @@ const formatText = t => {
   s = s.replace(/\n/g,'<br>');
   return s;
 };
-const avatarOf = u => u&&u.avatarData ? `<img src="${u.avatarData}">` : (u&&u.displayName?u.displayName.charAt(0).toUpperCase():'?');
+const _safeAvatar = d => d && (d.startsWith('data:image') || d.startsWith('https://')) ? d : null;
+const avatarOf = u => { const src=u&&_safeAvatar(u.avatarData); return src?`<img src="${src}">`:(u&&u.displayName?u.displayName.charAt(0).toUpperCase():'?'); };
 
 // ══ STATE ══
 let me=null, curRoom=null, curRoomType=null, curDmOther=null, isDm=false;
@@ -864,7 +866,7 @@ function renderList(filter=''){
       const li=document.createElement('div');
       li.className='list-item'+(curRoom===id&&!isDm?' active':'');
       li.onclick=()=>openRoom(id);
-      const iconHtml=r.avatarData?`<div class="item-icon" style="width:22px;height:22px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${r.avatarData}" style="width:100%;height:100%;object-fit:cover"></div>`:`<span class="item-icon">${r.icon||'💬'}</span>`;
+      const _rav=_safeAvatar(r.avatarData); const iconHtml=_rav?`<div class="item-icon" style="width:22px;height:22px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_rav}" style="width:100%;height:100%;object-fit:cover"></div>`:`<span class="item-icon">${r.icon||'💬'}</span>`;
       li.innerHTML=`${iconHtml}<span class="item-name">${type==='chat'?'# ':''}<b style="font-weight:500">${esc(r.name)}</b></span>${r.verified?'<span class="item-verified">✅</span>':''}`;
       wrap.appendChild(li);
     });
@@ -916,7 +918,7 @@ function openRoom(id){
   curRoomType=r.type;
 
   $('hIcon').style.display='';
-  if(r.avatarData){ $('hAv').style.display='flex'; $('hAv').innerHTML=`<img src="${r.avatarData}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; $('hIcon').style.display='none'; }
+  const _rhav=_safeAvatar(r.avatarData); if(_rhav){ $('hAv').style.display='flex'; $('hAv').innerHTML=`<img src="${_rhav}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`; $('hIcon').style.display='none'; }
   else { $('hAv').style.display='none'; $('hIcon').textContent=r.icon||(r.type==='channel'?'📢':'💬'); }
   $('hTitle').innerHTML=esc(r.name)+(r.verified?' <span class="verified-badge">✅</span>':'');
 
@@ -2080,5 +2082,3 @@ const urlJoin=new URLSearchParams(location.search).get('join');
 if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);});}
 </script>
 <script src="security.js"></script>
-</body>
-</html>
