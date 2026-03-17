@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
 <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -733,6 +733,7 @@ select.finput{cursor:pointer;}
 
 <!-- Firebase loaded below -->
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -759,17 +760,18 @@ const fmtLastSeen = ts => {
 };
 const formatText = t => {
   if(!t) return '';
+  // Сначала экранируем HTML
   let s = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  // **bold**
+  // Потом применяем markdown-lite (теги безопасны т.к. < > уже экранированы выше)
   s = s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
-  // _italic_
   s = s.replace(/_(.+?)_/g,'<i>$1</i>');
-  // `code`
   s = s.replace(/`([^`]+)`/g,'<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">$1</code>');
-  // ~~strikethrough~~
   s = s.replace(/~~(.+?)~~/g,'<s>$1</s>');
-  // newlines
   s = s.replace(/\n/g,'<br>');
+  // DOMPurify финальная очистка если доступен
+  if(typeof DOMPurify !== 'undefined') {
+    s = DOMPurify.sanitize(s, {ALLOWED_TAGS:['b','i','s','code','br'], ALLOWED_ATTR:['style']});
+  }
   return s;
 };
 const _safeAvatar = d => d && (d.startsWith('data:image') || d.startsWith('https://')) ? d : null;
@@ -2019,66 +2021,10 @@ function closeRecommend(){
 
 document.addEventListener('DOMContentLoaded', () => {
   setupScrollBtn();
-
-  // ── Защита критичных функций от переопределения ──
-  const _protect = ['sendMsg','delMsg','submitEdit','doReact','votePoll',
-    'createRoom','startDm','ctxBan','ctxProm','ctxDem','saveMyProfile',
-    'deleteRoom','deleteDmForBoth','submitReport','openSettings'];
-  _protect.forEach(fn => {
-    try {
-      const orig = window[fn];
-      if(typeof orig !== 'function') return;
-      Object.defineProperty(window, fn, {
-        get: () => orig,
-        set: () => {},
-        configurable: false,
-        enumerable: false
-      });
-    } catch(e) {}
-  });
-
-  // ── Заморозить объект me от изменений через консоль ──
-  // Следим за попытками изменить me.isAdmin
-  let _meProxy = null;
-  const _origMe = { value: null };
-  Object.defineProperty(window, 'me', {
-    get: () => _origMe.value,
-    set: (v) => {
-      if(v && typeof v === 'object') {
-        // Запретить изменение isAdmin через me.isAdmin = true
-        try {
-          Object.defineProperty(v, 'isAdmin', {
-            get: () => _origMe.value ? _origMe.value.__isAdmin : false,
-            set: () => {},
-            configurable: false
-          });
-          v.__isAdmin = v.isAdmin;
-        } catch(e) {}
-      }
-      _origMe.value = v;
-    },
-    configurable: false
-  });
-
-  // ── Детект подозрительной активности ──
-  let _suspicious = 0;
-  const _origFetch = window.fetch;
-  window.fetch = function(url, opts) {
-    // Разрешить только Firebase домены
-    const allowed = ['firebasedatabase.app','googleapis.com','gstatic.com','firebaseapp.com','identitytoolkit','securetoken'];
-    if(typeof url === 'string' && url.startsWith('http')) {
-      if(!allowed.some(d => url.includes(d))) {
-        _suspicious++;
-        if(_suspicious > 3 && typeof auth !== 'undefined') {
-          auth.signOut();
-        }
-        return Promise.reject(new Error('Blocked'));
-      }
-    }
-    return _origFetch.apply(this, arguments);
-  };
 });
 const urlJoin=new URLSearchParams(location.search).get('join');
 if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);});}
 </script>
 <script src="security.js"></script>
+</body>
+</html>
