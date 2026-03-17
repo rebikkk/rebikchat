@@ -685,7 +685,7 @@ function fmtLastSeen(ts) {
 }
 
 async function loadReports() {
-  const snap = await db.ref('reports').orderByChild('ts').limitToLast(100).get();
+  const snap = await db.ref('reports').limitToLast(100).get();
   const list = document.getElementById('reportsList');
   const reports = snap.val()||{};
   const entries = Object.entries(reports).sort((a,b)=>b[1].ts-a[1].ts);
@@ -770,3 +770,4 @@ document.getElementById('createChannelModal').addEventListener('click', e => {
 </script>
 <script src="security.js"></script>
 </body>
+</html>
