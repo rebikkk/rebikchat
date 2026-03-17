@@ -16,6 +16,15 @@
   --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--purple:#a855f7;--pink:#ec4899;
   --text:#e2e8f0;--text2:#94a3b8;--text3:#475569;--online:#22c55e;
 }
+[data-theme="light"]{
+  --bg:#f0f2f5;--sidebar:#ffffff;--surface:#ffffff;--surface2:#f7f8fa;--surface3:#e4e6eb;
+  --border:#dddfe2;--border2:#ccd0d5;--accent:#0084ff;--accent2:#0084ff;
+  --text:#1c1e21;--text2:#65676b;--text3:#8a8d91;--online:#31a24c;--sidebar:#f0f2f5;
+}
+[data-theme="amoled"]{
+  --bg:#000000;--sidebar:#0a0a0a;--surface:#111111;--surface2:#1a1a1a;--surface3:#222222;
+  --border:#2a2a2a;--border2:#333333;--text:#ffffff;--text2:#aaaaaa;--text3:#666666;
+}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Onest',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;overflow:hidden;}
 ::-webkit-scrollbar{width:4px;height:4px;}
@@ -385,6 +394,7 @@ select.finput{cursor:pointer;}
         <div class="online-pill" id="onlinePill"></div>
         <button class="ibtn" title="Участники" onclick="toggleMembersPanel()" id="membersBtn">👥</button>
         <button class="ibtn" title="Голосование" id="pollBtn" onclick="openPoll()" style="display:none">📊</button>
+        <button class="ibtn" title="Медиагалерея" id="galleryBtn" onclick="openGallery()" style="display:none">🖼</button>
         <div id="header-acts-extra" style="display:none;gap:2px"></div>
       </div>
     </div>
@@ -414,6 +424,7 @@ select.finput{cursor:pointer;}
         <textarea class="msg-input" id="msgInput" placeholder="Написать сообщение..." rows="1"
           oninput="onInput(this)" onkeydown="onKey(event)"></textarea>
         <button class="emo-btn" onclick="toggleFmt()" type="button" title="Форматирование">Aa</button>
+        <button class="emo-btn" onclick="toggleStickers()" type="button" title="Стикеры">🎭</button>
         <button class="emo-btn" onclick="toggleEmoji()" type="button">😊</button>
         <button class="send-btn" id="sendBtn" onclick="sendMsg()" type="button">➤</button>
       </div>
@@ -424,6 +435,10 @@ select.finput{cursor:pointer;}
   <button onclick="wrapFmt('_','_')" style="background:none;border:none;color:var(--text);cursor:pointer;padding:5px 8px;border-radius:6px;font-style:italic;font-size:14px" title="Курсив">I</button>
   <button onclick="wrapFmt('`','`')" style="background:none;border:none;color:var(--text);cursor:pointer;padding:5px 8px;border-radius:6px;font-family:monospace;font-size:14px" title="Код">{ }</button>
   <button onclick="wrapFmt('~~','~~')" style="background:none;border:none;color:var(--text);cursor:pointer;padding:5px 8px;border-radius:6px;text-decoration:line-through;font-size:14px" title="Зачёркнутый">S</button>
+</div>
+<div id="stickerPicker" style="position:absolute;bottom:70px;right:15px;background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:10px;display:none;width:280px;box-shadow:0 8px 25px rgba(0,0,0,.5);z-index:50">
+  <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Стикеры</div>
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px" id="stickerGrid"></div>
 </div>
 <div class="emo-picker" id="emoPicker">
       <span class="eo" onclick="ins('😀')">😀</span><span class="eo" onclick="ins('😂')">😂</span><span class="eo" onclick="ins('😍')">😍</span><span class="eo" onclick="ins('🤔')">🤔</span><span class="eo" onclick="ins('👍')">👍</span><span class="eo" onclick="ins('👎')">👎</span><span class="eo" onclick="ins('❤️')">❤️</span><span class="eo" onclick="ins('🔥')">🔥</span><span class="eo" onclick="ins('💯')">💯</span><span class="eo" onclick="ins('🎉')">🎉</span><span class="eo" onclick="ins('😭')">😭</span><span class="eo" onclick="ins('🤣')">🤣</span><span class="eo" onclick="ins('😎')">😎</span><span class="eo" onclick="ins('🙏')">🙏</span><span class="eo" onclick="ins('💪')">💪</span><span class="eo" onclick="ins('👀')">👀</span><span class="eo" onclick="ins('🤦')">🤦</span><span class="eo" onclick="ins('🥳')">🥳</span><span class="eo" onclick="ins('😴')">😴</span><span class="eo" onclick="ins('🤯')">🤯</span>
@@ -621,6 +636,12 @@ select.finput{cursor:pointer;}
       <button onclick="closeOverlay('settingsModal');openWallpaperModal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:left;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">🖼</span><div><div style="font-weight:600">Обои</div><div style="font-size:12px;color:var(--text3)">Фон чата</div></div>
       </button>
+      <button onclick="closeOverlay('settingsModal');openThemeSettings()" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:left;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:22px">🎨</span><div><div style="font-weight:600">Тема</div><div style="font-size:12px;color:var(--text3)">Светлая / тёмная / AMOLED</div></div>
+      </button>
+      <button onclick="toggleSound(this)" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:left;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px;width:100%">
+        <span style="font-size:22px" id="soundIcon">🔔</span><div><div style="font-weight:600" id="soundLabel">Звук вкл</div><div style="font-size:12px;color:var(--text3)">Уведомления о сообщениях</div></div>
+      </button>
       <button onclick="closeOverlay('settingsModal');logout()" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:12px;padding:14px 16px;text-align:left;cursor:pointer;color:#fca5a5;font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px">
         <span style="font-size:22px">🚪</span><div><div style="font-weight:600">Выйти</div></div>
       </button>
@@ -703,6 +724,37 @@ select.finput{cursor:pointer;}
       <button class="mbtn" style="background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.2)" onclick="deleteDmForMe()">🗑 Удалить только у меня</button>
       <button class="mbtn mbtn-c" onclick="closeOverlay('deleteDmModal')">Отмена</button>
     </div>
+  </div>
+</div>
+
+<!-- Theme Modal -->
+<div class="overlay" id="themeModal">
+  <div class="modal" style="max-width:360px">
+    <h3>🎨 Тема оформления</h3>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <button onclick="applyTheme('dark');closeOverlay('themeModal')" style="background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="width:32px;height:32px;border-radius:8px;background:#0a0e17;border:1px solid #1e2d45;flex-shrink:0"></span>
+        <div><div style="font-weight:600">🌑 Тёмная</div><div style="font-size:12px;color:var(--text3)">По умолчанию</div></div>
+      </button>
+      <button onclick="applyTheme('amoled');closeOverlay('themeModal')" style="background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="width:32px;height:32px;border-radius:8px;background:#000;border:1px solid #333;flex-shrink:0"></span>
+        <div><div style="font-weight:600">⬛ AMOLED</div><div style="font-size:12px;color:var(--text3)">Чистый чёрный</div></div>
+      </button>
+      <button onclick="applyTheme('light');closeOverlay('themeModal')" style="background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;color:var(--text);font-family:'Onest',sans-serif;font-size:14px;display:flex;align-items:center;gap:12px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span style="width:32px;height:32px;border-radius:8px;background:#f0f2f5;border:1px solid #dddfe2;flex-shrink:0"></span>
+        <div><div style="font-weight:600">☀️ Светлая</div><div style="font-size:12px;color:var(--text3)">Светлая тема</div></div>
+      </button>
+    </div>
+    <button class="mbtn mbtn-c" style="width:100%" onclick="closeOverlay('themeModal')">Закрыть</button>
+  </div>
+</div>
+
+<!-- Media Gallery Modal -->
+<div class="overlay" id="galleryModal">
+  <div class="modal" style="max-width:600px">
+    <h3>🖼 Медиагалерея</h3>
+    <div id="galleryGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-height:400px;overflow-y:auto;margin-bottom:12px"></div>
+    <button class="mbtn mbtn-c" style="width:100%" onclick="closeOverlay('galleryModal')">Закрыть</button>
   </div>
 </div>
 
@@ -809,6 +861,10 @@ auth.onAuthStateChanged(async user => {
 });
 
 function renderSelf(){
+  // Обновить иконку звука
+  const sIcon=$('soundIcon'), sLabel=$('soundLabel');
+  if(sIcon) sIcon.textContent=soundEnabled?'🔔':'🔕';
+  if(sLabel) sLabel.textContent=soundEnabled?'Звук вкл':'Звук выкл';
   const av=$('selfAv');
   av.innerHTML=(me.avatarData?`<img src="${me.avatarData}">`:me.displayName.charAt(0).toUpperCase())+'<div class="dot"></div>';
   $('selfName').innerHTML=esc(me.displayName)+(me.verified?' <span style="color:var(--accent);font-size:12px">✅</span>':'')+(me.isAdmin?' <span style="font-size:11px;color:#c084fc">👑</span>':'');
@@ -944,6 +1000,7 @@ function openRoom(id){
 
   const extraActs=$('header-acts-extra'); if(extraActs){extraActs.innerHTML='';extraActs.style.display='none';}
   if(dmTypingRef){dmTypingRef.off();dmTypingRef=null;} if(me&&curRoom)db.ref('dmTyping/'+curRoom+'/'+me.uid).remove();
+  $('galleryBtn').style.display='';
   updateActiveNav(); showChat();
   loadMessages('rooms/'+id+'/msgs');
   listenTyping(id);
@@ -1023,6 +1080,8 @@ function loadMessages(path){
     c.scrollTop=c.scrollHeight;
     // Обновить title с количеством непрочитанных
     updatePageTitle();
+    // Звук при новом сообщении если не в фокусе
+    if(document.hidden) playSound('notify');
     // Отметить прочитанным
     if(isDm&&curDmOther) db.ref('dms/'+curRoom+'/unread/'+me.uid).remove();
   });
@@ -1191,6 +1250,7 @@ async function sendMsg(){
   }
 
   if(curRoom&&!isDm) db.ref('typing/'+curRoom+'/'+me.uid).remove();
+  playSound('msg');
   addLog('lm',`${me.displayName} → ${isDm?'ЛС':('#'+(allRooms[curRoom]&&allRooms[curRoom].name||curRoom))}`);
 }
 
@@ -1933,98 +1993,38 @@ function closeRecommendations(){
   db.ref('users/'+me.uid+'/isNewUser').remove();
   me.isNewUser=false;
 }
-function openSettings(){ $('settingsModal').classList.add('show'); }
-function openPrivacySettings(){
-  $('privHideLastSeen').checked=me.hideLastSeen||false;
-  $('privDmMode').value=me.dmPrivacy||'all';
-  $('privacyModal').classList.add('show');
+
+// ══ ТЕМЫ ══
+const THEMES = [
+  {id:'dark', name:'🌑 Тёмная', label:'По умолчанию'},
+  {id:'amoled', name:'⬛ AMOLED', label:'Чистый чёрный'},
+  {id:'light', name:'☀️ Светлая', label:'Светлая тема'},
+];
+function applyTheme(id){
+  document.documentElement.setAttribute('data-theme', id==='dark'?'':id);
+  localStorage.setItem('theme', id);
 }
-async function savePrivacySettings(){
-  const hideLS=$('privHideLastSeen').checked;
-  const dmPrivacy=$('privDmMode').value;
-  await db.ref('users/'+me.uid).update({hideLastSeen:hideLS,dmPrivacy});
-  me.hideLastSeen=hideLS; me.dmPrivacy=dmPrivacy;
-  closeOverlay('privacyModal'); toast('Настройки сохранены','ok');
+function loadTheme(){
+  const saved = localStorage.getItem('theme')||'dark';
+  applyTheme(saved);
 }
+loadTheme();
 
-// ══ PAGE TITLE ══
-function updatePageTitle(){
-  db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get().then(snap=>{
-    const dms=snap.val()||{};
-    let total=0;
-    Object.values(dms).forEach(dm=>{ if(dm.unread&&dm.unread[me.uid]) total+=dm.unread[me.uid]; });
-    document.title = total>0 ? `(${total}) ReChat` : 'ReChat';
-  });
+// ══ СТИКЕРЫ ══
+const STICKER_PACKS = {
+  'Смайлы': ['😀','😂','🥹','😍','🤔','😎','🥳','😴','🤯','🥺','😭','🤣','😤','🫡','🤝'],
+  'Жесты': ['👍','👎','👏','🙌','🤜','✌️','🤞','🫶','💪','🙏','👋','🫂'],
+  'Природа': ['🔥','⚡','❄️','🌊','🌙','☀️','🌈','💫','⭐','🌸','🍀','🌊'],
+  'Объекты': ['💎','🏆','🎯','🎮','🎵','📱','💻','🔑','⚔️','🛡️','💣','🚀'],
+};
+let curStickerPack = 'Смайлы';
+function toggleStickers(){
+  const p=$('stickerPicker');
+  const show=p.style.display==='none'||!p.style.display;
+  p.style.display=show?'block':'none';
+  $('emoPicker').classList.remove('show');
+  $('fmtPicker').style.display='none';
+  if(show) renderStickers(curStickerPack);
 }
-
-// ══ TOAST ══
-let toastTimer=null;
-function toast(msg,type='ok'){
-  const t=$('toast');t.textContent=(type==='ok'?'✓ ':type==='err'?'✕ ':'ℹ️ ')+msg;
-  t.className='toast '+type+' show';
-  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
-}
-
-// ══ MISC ══
-function closeOverlay(id){$(id).classList.remove('show');}
-document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');}));
-function toggleSidebar(){$('sidebar').classList.toggle('open');$('sidebarOverlay').classList.toggle('show');}
-function closeSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('show');}
-
-
-// ══ RECOMMENDED CHANNELS ══
-async function showRecommendedChannels(){
-  // Показывать только при первом входе
-  const shownKey = 'rechat_recommend_shown_'+me.uid;
-  if(localStorage.getItem(shownKey)) return;
-
-  // Найти каналы помеченные как рекомендованные
-  const recommended = Object.entries(allRooms)
-    .filter(([,r]) => r.type==='channel' && r.recommended)
-    .slice(0, 5);
-
-  if(!recommended.length) return;
-
-  const list = $('recommendList');
-  list.innerHTML = '';
-  recommended.forEach(([id, r]) => {
-    const alreadySub = r.subscribers && r.subscribers[me.uid];
-    if(alreadySub) return;
-    const item = document.createElement('div');
-    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:8px';
-    item.innerHTML = `
-      <span style="font-size:24px">${r.icon||'📢'}</span>
-      <div style="flex:1">
-        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
-        <div style="font-size:12px;color:var(--text3)">${esc(r.desc||'')} • ${Object.keys(r.subscribers||{}).length} подписчиков</div>
-      </div>
-      <button class="mbtn mbtn-p" style="padding:6px 14px;font-size:12px;white-space:nowrap" onclick="subscribeRecommend('${id}',this)">Подписаться</button>
-    `;
-    list.appendChild(item);
-  });
-
-  if(!list.children.length) return;
-  $('recommendModal').classList.add('show');
-}
-
-async function subscribeRecommend(roomId, btn){
-  await db.ref('rooms/'+roomId+'/subscribers/'+me.uid).set(true);
-  btn.textContent = '✓ Подписан';
-  btn.disabled = true;
-  btn.style.background = 'var(--green)';
-}
-
-function closeRecommend(){
-  $('recommendModal').classList.remove('show');
-  localStorage.setItem('rechat_recommend_shown_'+me.uid, '1');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  setupScrollBtn();
-});
-const urlJoin=new URLSearchParams(location.search).get('join');
-if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);});}
-</script>
-<script src="security.js"></script>
-</body>
-</html>
+function renderStickers(pack){
+  curStickerPack=pack;
