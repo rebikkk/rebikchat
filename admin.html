@@ -433,7 +433,6 @@
   </div>
 </div>
 
-<script src="security.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -761,4 +760,13 @@ async function adminSendMsg(uid, displayName) {
   for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
   if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
   await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
- 
+  alert('Сообщение отправлено!');
+}
+function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
+document.getElementById('createChannelModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+<script src="security.js"></script>
+</body>
+</html>
