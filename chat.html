@@ -1553,7 +1553,7 @@ function loadAvatar(e){
   const r=new FileReader(); r.onload=ev=>{pendingAvatar=ev.target.result;$('epAvatarImg').src=pendingAvatar;$('epAvatarPrev').style.display='flex';$('epAvatarPrev').style.alignItems='center';}; r.readAsDataURL(f);
 }
 async function saveMyProfile(){
-  const name=$('epName').value.trim().substring(0,30); if(!name){toast('Имя не может быть пустым','err');return;}
+  const name=$('epName').value.trim().replace(/[<>"'&]/g,'').substring(0,30); if(!name){toast('Имя не может быть пустым','err');return;}
   if(/<[^>]*>/.test(name)){toast('Недопустимые символы в имени','err');return;}
   const bio=$('epBio').value.trim().substring(0,160);
   const updates={displayName:name,bio,hideLastSeen:$('epHideLastSeen').checked};
