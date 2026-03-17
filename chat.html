@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
 <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -785,7 +785,6 @@ select.finput{cursor:pointer;}
 
 <!-- Firebase loaded below -->
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -820,10 +819,8 @@ const formatText = t => {
   s = s.replace(/`([^`]+)`/g,'<code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px">$1</code>');
   s = s.replace(/~~(.+?)~~/g,'<s>$1</s>');
   s = s.replace(/\n/g,'<br>');
-  // DOMPurify финальная очистка если доступен
-  if(typeof DOMPurify !== 'undefined') {
-    s = DOMPurify.sanitize(s, {ALLOWED_TAGS:['b','i','s','code','br'], ALLOWED_ATTR:['style']});
-  }
+  // Встроенная очистка — разрешены только безопасные теги
+  s = s.replace(/<(?!\/?(b|i|s|code|br)(\s[^>]*)?>)[^>]*>/gi, '');
   return s;
 };
 const _safeAvatar = d => d && (d.startsWith('data:image') || d.startsWith('https://')) ? d : null;
@@ -1103,7 +1100,7 @@ function renderMsg(id,msg,container,showHead){
   const isChannel=curRoom&&allRooms[curRoom]&&allRooms[curRoom].type==='channel';
   const showSig=isChannel&&allRooms[curRoom].showSignature;
   const displayName=isChannel&&!showSig?esc(allRooms[curRoom].name||'Канал'):esc(msg.name||author.displayName||'?');
-  const channelAv=isChannel&&!showSig?(allRooms[curRoom].avatarData?`<img src="${allRooms[curRoom].avatarData}">` :(allRooms[curRoom].icon||'📢')):null;
+  const channelAv=isChannel&&!showSig?(_safeAvatar(allRooms[curRoom].avatarData)?`<img src="${_safeAvatar(allRooms[curRoom].avatarData)}">`  :(allRooms[curRoom].icon||'📢')):null;
 
   const nameClass=isSysAdm?'msg-name adm':(isRoomAdm?'msg-name chadm':'msg-name');
   const roleTag=isSysAdm?' 👑':(isRoomAdm?' ⭐':'');
@@ -1685,7 +1682,7 @@ function openCurrentInfo(){
   $('roomInfoBody').innerHTML=`
     <div class="info-section">
       <div style="display:flex;align-items:flex-start;gap:12px">
-        <span style="font-size:36px">${r.avatarData?`<img src="${r.avatarData}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">`:(r.icon||'💬')}</span>
+        <span style="font-size:36px">${r.avatarData?`<img src="${_safeAvatar(r.avatarData)||''}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">`:(r.icon||'💬')}</span>
         <div style="flex:1">
           <div class="info-name">${esc(r.name)}${r.verified?' <span style="color:var(--accent);font-size:14px">✅</span>':''}</div>
           <div class="info-desc">${esc(r.desc||'Без описания')}</div>
@@ -1731,7 +1728,7 @@ async function openEditRoom(id){
       📷 Загрузить аватарку
       <input type="file" accept="image/*" style="display:none" onchange="loadRoomAvatar(event,'${id}')"></label>
     <div id="roomAvatarPrev" style="margin-bottom:10px;display:${r.avatarData?'flex':'none'};align-items:center;gap:8px">
-      <img id="roomAvatarImg" src="${r.avatarData||''}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">
+      <img id="roomAvatarImg" src="${_safeAvatar(r.avatarData)||''}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)">
       <span style="font-size:12px;color:var(--green)">✓ Аватарка установлена</span>
     </div>`;
 
@@ -2028,3 +2025,168 @@ function toggleStickers(){
 }
 function renderStickers(pack){
   curStickerPack=pack;
+  const grid=$('stickerGrid');
+  // Табы паков
+  const tabsHtml=Object.keys(STICKER_PACKS).map(p=>
+    `<button onclick="renderStickers('${p}')" style="background:${p===pack?'var(--accent)':'var(--surface2)'};border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:${p===pack?'#fff':'var(--text2)'};cursor:pointer;font-family:'Onest',sans-serif">${p}</button>`
+  ).join('');
+  const stickersHtml=STICKER_PACKS[pack].map(s=>
+    `<button onclick="sendSticker('${s}')" style="background:none;border:none;font-size:26px;cursor:pointer;padding:3px;border-radius:8px;transition:all .12s;line-height:1" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">${s}</button>`
+  ).join('');
+  $('stickerPicker').querySelector('div:last-child').innerHTML='';
+  $('stickerPicker').innerHTML=`
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Стикеры</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">${tabsHtml}</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px">${stickersHtml}</div>`;
+}
+async function sendSticker(emoji){
+  if(!curRoom||!me) return;
+  $('stickerPicker').style.display='none';
+  const path=isDm?'dms/'+curRoom+'/msgs':'rooms/'+curRoom+'/msgs';
+  const msg={text:emoji,uid:me.uid,name:me.displayName,ts:Date.now(),type:'sticker'};
+  await db.ref(path).push(msg);
+  if(isDm&&curDmOther){
+    db.ref('dms/'+curRoom).update({lastMsg:{text:emoji,ts:Date.now()}});
+    db.ref('dms/'+curRoom+'/unread/'+curDmOther.uid).transaction(v=>(v||0)+1);
+  }
+  playSound('msg');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#stickerPicker')&&!e.target.closest('.emo-btn'))
+    $('stickerPicker').style.display='none';
+});
+
+// ══ МЕДИАГАЛЕРЕЯ ══
+async function openGallery(){
+  if(!curRoom||isDm) return;
+  const snap=await db.ref('rooms/'+curRoom+'/msgs').get();
+  const msgs=snap.val()||{};
+  const photos=Object.values(msgs).filter(m=>m.type==='photo'||
+    (m.text&&(m.text.startsWith('data:image')||m.text.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/i))));
+  const grid=$('galleryGrid');
+  if(!photos.length){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--text3);padding:30px">Фото пока нет</div>';
+  } else {
+    grid.innerHTML=photos.sort((a,b)=>b.ts-a.ts).map(m=>`
+      <div style="aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:pointer" onclick="window.open('${m.text}','_blank')">
+        <img src="${_safeAvatar(m.text)||''}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.display='none'">
+      </div>`).join('');
+  }
+  $('galleryModal').classList.add('show');
+}
+function openSettings(){ $('settingsModal').classList.add('show'); }
+function openThemeSettings(){ $('themeModal').classList.add('show'); }
+function openPrivacySettings(){
+  $('privHideLastSeen').checked=me.hideLastSeen||false;
+  $('privDmMode').value=me.dmPrivacy||'all';
+  $('privacyModal').classList.add('show');
+}
+async function savePrivacySettings(){
+  const hideLS=$('privHideLastSeen').checked;
+  const dmPrivacy=$('privDmMode').value;
+  await db.ref('users/'+me.uid).update({hideLastSeen:hideLS,dmPrivacy});
+  me.hideLastSeen=hideLS; me.dmPrivacy=dmPrivacy;
+  closeOverlay('privacyModal'); toast('Настройки сохранены','ok');
+}
+
+// ══ ЗВУКОВЫЕ УВЕДОМЛЕНИЯ ══
+let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+function playSound(type){
+  if(!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if(type==='msg'){ osc.frequency.setValueAtTime(880,ctx.currentTime); osc.frequency.setValueAtTime(660,ctx.currentTime+0.1); gain.gain.setValueAtTime(0.1,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3); osc.start(); osc.stop(ctx.currentTime+0.3); }
+    else if(type==='notify'){ osc.frequency.setValueAtTime(523,ctx.currentTime); osc.frequency.setValueAtTime(784,ctx.currentTime+0.15); gain.gain.setValueAtTime(0.15,ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4); osc.start(); osc.stop(ctx.currentTime+0.4); }
+  } catch(e){}
+}
+function toggleSound(btn){
+  soundEnabled=!soundEnabled;
+  localStorage.setItem('soundEnabled',soundEnabled);
+  btn.textContent=soundEnabled?'🔔 Звук вкл':'🔕 Звук выкл';
+  toast(soundEnabled?'Звук включён':'Звук выключен','info');
+}
+
+// ══ PAGE TITLE ══
+function updatePageTitle(){
+  db.ref('dms').orderByChild('p/'+me.uid).equalTo(true).get().then(snap=>{
+    const dms=snap.val()||{};
+    let total=0;
+    Object.values(dms).forEach(dm=>{ if(dm.unread&&dm.unread[me.uid]) total+=dm.unread[me.uid]; });
+    document.title = total>0 ? `(${total}) ReChat` : 'ReChat';
+  });
+}
+
+// ══ TOAST ══
+let toastTimer=null;
+function toast(msg,type='ok'){
+  const t=$('toast');t.textContent=(type==='ok'?'✓ ':type==='err'?'✕ ':'ℹ️ ')+msg;
+  t.className='toast '+type+' show';
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ══ MISC ══
+function closeOverlay(id){$(id).classList.remove('show');}
+document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('show');}));
+function toggleSidebar(){$('sidebar').classList.toggle('open');$('sidebarOverlay').classList.toggle('show');}
+function closeSidebar(){$('sidebar').classList.remove('open');$('sidebarOverlay').classList.remove('show');}
+
+
+// ══ RECOMMENDED CHANNELS ══
+async function showRecommendedChannels(){
+  // Показывать только при первом входе
+  const shownKey = 'rechat_recommend_shown_'+me.uid;
+  if(localStorage.getItem(shownKey)) return;
+
+  // Найти каналы помеченные как рекомендованные
+  const recommended = Object.entries(allRooms)
+    .filter(([,r]) => r.type==='channel' && r.recommended)
+    .slice(0, 5);
+
+  if(!recommended.length) return;
+
+  const list = $('recommendList');
+  list.innerHTML = '';
+  recommended.forEach(([id, r]) => {
+    const alreadySub = r.subscribers && r.subscribers[me.uid];
+    if(alreadySub) return;
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:10px;margin-bottom:8px';
+    item.innerHTML = `
+      <span style="font-size:24px">${r.icon||'📢'}</span>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">${esc(r.name)}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(r.desc||'')} • ${Object.keys(r.subscribers||{}).length} подписчиков</div>
+      </div>
+      <button class="mbtn mbtn-p" style="padding:6px 14px;font-size:12px;white-space:nowrap" onclick="subscribeRecommend('${id}',this)">Подписаться</button>
+    `;
+    list.appendChild(item);
+  });
+
+  if(!list.children.length) return;
+  $('recommendModal').classList.add('show');
+}
+
+async function subscribeRecommend(roomId, btn){
+  await db.ref('rooms/'+roomId+'/subscribers/'+me.uid).set(true);
+  btn.textContent = '✓ Подписан';
+  btn.disabled = true;
+  btn.style.background = 'var(--green)';
+}
+
+function closeRecommend(){
+  $('recommendModal').classList.remove('show');
+  localStorage.setItem('rechat_recommend_shown_'+me.uid, '1');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupScrollBtn();
+});
+const urlJoin=new URLSearchParams(location.search).get('join');
+if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);}); }
+</script>
+<script src="security.js"></script>
+</body>
+</html>
