@@ -1,24 +1,7 @@
 (function() {
   'use strict';
 
-  // ── Блок консоли ──────────────────────────
-  const noop = function() {};
-  try {
-    Object.defineProperty(window, 'console', {
-      get: function() {
-        return {
-          log: noop, warn: noop, info: noop, error: noop,
-          debug: noop, dir: noop, table: noop, trace: noop,
-          group: noop, groupEnd: noop, time: noop, timeEnd: noop,
-          assert: noop, count: noop, clear: noop
-        };
-      },
-      set: function() {},
-      configurable: false
-    });
-  } catch(e) {}
-
-  // ── Блок DevTools клавиш ──────────────────
+  // ── Блок F12 и DevTools горячих клавиш ───
   document.addEventListener('keydown', function(e) {
     if (e.key === 'F12') { e.preventDefault(); return false; }
     if (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) {
@@ -32,9 +15,9 @@
     }
   });
 
-  // ── Блок правой кнопки ────────────────────
+  // ── Блок правой кнопки мыши ──────────────
   document.addEventListener('contextmenu', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
     e.preventDefault();
   });
 
@@ -43,12 +26,14 @@
     window.top.location = window.self.location;
   }
 
-  // ── Детект открытых DevTools ──────────────
+  // ── Детект DevTools по размеру окна ──────
   setInterval(function() {
     const w = window.outerWidth - window.innerWidth;
     const h = window.outerHeight - window.innerHeight;
     if (w > 160 || h > 160) {
-      document.querySelectorAll('input').forEach(el => el.value = '');
+      document.querySelectorAll('input[type=password]').forEach(function(el) {
+        el.value = '';
+      });
     }
   }, 1000);
 
