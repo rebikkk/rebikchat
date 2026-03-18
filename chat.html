@@ -334,6 +334,60 @@ select.finput{cursor:pointer;}
 .report-reason-btn{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 8px;font-size:13px;cursor:pointer;color:var(--text2);font-family:'Onest',sans-serif;transition:all .15s;text-align:center;}
 .report-reason-btn:hover,.report-reason-btn.active{background:rgba(59,130,246,.15);border-color:var(--accent);color:var(--text);}
 .report-reason-btn.active{font-weight:600;}
+
+/* ── Голосовые сообщения ── */
+.voice-btn{width:32px;height:32px;border-radius:8px;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  background:none;color:var(--text3);transition:all .2s;flex-shrink:0;}
+.voice-btn:hover{background:var(--surface3);color:var(--text);}
+.voice-btn.recording{background:rgba(239,68,68,.15);color:var(--red);animation:pulse-rec 1s ease-in-out infinite;}
+@keyframes pulse-rec{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.voice-recorder{display:none;align-items:center;gap:10px;padding:8px 12px;
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
+  border-radius:12px;margin-bottom:8px;}
+.voice-recorder.show{display:flex;}
+.rec-time{font-size:13px;color:var(--red);font-family:'JetBrains Mono',monospace;font-weight:600;min-width:40px;}
+.rec-wave{flex:1;height:24px;display:flex;align-items:center;gap:2px;}
+.rec-bar{width:3px;border-radius:2px;background:var(--red);opacity:.7;animation:wave-bar .6s ease-in-out infinite;}
+.rec-bar:nth-child(2){animation-delay:.1s}.rec-bar:nth-child(3){animation-delay:.2s}
+.rec-bar:nth-child(4){animation-delay:.3s}.rec-bar:nth-child(5){animation-delay:.4s}
+@keyframes wave-bar{0%,100%{height:4px}50%{height:20px}}
+
+/* ── Аудио плеер в сообщении ── */
+.voice-msg{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:var(--surface2);border-radius:12px;min-width:180px;max-width:260px;cursor:pointer;}
+.voice-play{width:32px;height:32px;border-radius:50%;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  color:#fff;flex-shrink:0;transition:all .15s;}
+.voice-play:hover{background:var(--accent2);}
+.voice-progress{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden;}
+.voice-progress-fill{height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .1s;}
+.voice-duration{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;min-width:32px;}
+
+/* ── Изображения в сообщениях ── */
+.msg-img{max-width:280px;max-height:300px;border-radius:10px;cursor:pointer;
+  display:block;object-fit:cover;transition:opacity .15s;}
+.msg-img:hover{opacity:.9;}
+@media(max-width:768px){.msg-img{max-width:220px;max-height:240px;}}
+
+/* ── Анимации переходов ── */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeInRight{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.msg-group{animation:fadeInUp .18s ease both;}
+.sidebar{transition:left .25s cubic-bezier(.4,0,.2,1);}
+.modal{animation:scaleIn .18s ease;}
+.list-item{transition:background .12s,transform .1s;}
+.list-item:active{transform:scale(.98);}
+.profile-page.show{animation:fadeInRight .2s ease;}
+.chat-header{transition:background .15s;}
+
+/* ── Push уведомления badge ── */
+.notif-badge{position:absolute;top:-4px;right:-4px;width:16px;height:16px;
+  background:var(--red);border-radius:50%;font-size:9px;font-weight:700;
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--sidebar);}
+.self-actions{position:relative;}
 </style>
 </head>
 <body>
@@ -420,12 +474,28 @@ select.finput{cursor:pointer;}
         <button onclick="cancelReply()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
       </div>
       <div class="char-count" id="charCount"></div>
+      <!-- Рекордер голоса -->
+      <div class="voice-recorder" id="voiceRecorder">
+        <span style="font-size:16px">🔴</span>
+        <span class="rec-time" id="recTime">0:00</span>
+        <div class="rec-wave">
+          <div class="rec-bar"></div><div class="rec-bar"></div><div class="rec-bar"></div>
+          <div class="rec-bar"></div><div class="rec-bar"></div>
+        </div>
+        <button onclick="cancelVoice()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:2px 6px">✕</button>
+        <button onclick="sendVoice()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-weight:600;padding:6px 12px;font-family:'Onest',sans-serif">Отправить</button>
+      </div>
       <div class="input-box">
         <textarea class="msg-input" id="msgInput" placeholder="Написать сообщение..." rows="1"
           oninput="onInput(this)" onkeydown="onKey(event)"></textarea>
+        <!-- Прикрепить фото -->
+        <label class="emo-btn" title="Фото" style="cursor:pointer">
+          📷<input type="file" accept="image/*" style="display:none" onchange="sendImage(event)">
+        </label>
         <button class="emo-btn" onclick="toggleFmt()" type="button" title="Форматирование">Aa</button>
         <button class="emo-btn" onclick="toggleStickers()" type="button" title="Стикеры">🎭</button>
         <button class="emo-btn" onclick="toggleEmoji()" type="button">😊</button>
+        <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()" type="button" title="Голосовое">🎤</button>
         <button class="send-btn" id="sendBtn" onclick="sendMsg()" type="button">➤</button>
       </div>
     </div>
@@ -968,7 +1038,7 @@ function onSearch(v){ renderList(v); }
 
 // ══ OPEN ROOM / DM ══
 function openRoom(id){
-  curRoom=id; isDm=false; curDmOther=null; replyTo=null; cancelReply();
+  curRoom=id; isDm=false; curDmOther=null; replyTo=null; cancelReply(); if(mediaRecorder&&mediaRecorder.state==='recording') cancelVoice();
   const r=allRooms[id]; if(!r) return;
   curRoomType=r.type;
 
@@ -1007,7 +1077,7 @@ function openRoom(id){
 }
 
 function openDm(dmId,otherUser){
-  curRoom=dmId; isDm=true; curDmOther=otherUser; replyTo=null; cancelReply();
+  curRoom=dmId; isDm=true; curDmOther=otherUser; replyTo=null; cancelReply(); if(mediaRecorder&&mediaRecorder.state==='recording') cancelVoice();
   curRoomType='dm';
 
   $('hIcon').style.display='none';
@@ -1041,6 +1111,8 @@ function showChat(){
   $('profilePage').classList.remove('show');
   const cv=$('chatView');
   cv.style.display='flex'; cv.style.flexDirection='column'; cv.style.flex='1'; cv.style.minHeight='0'; cv.style.overflow='hidden';
+  cv.style.animation='fadeInRight .2s ease';
+  setTimeout(()=>cv.style.animation='',200);
 }
 function updateActiveNav(){ document.querySelectorAll('.list-item').forEach(el=>el.classList.remove('active')); }
 function updateOnline(){
@@ -1325,6 +1397,7 @@ function setReply(mid,name,text){
   $('replyPrev').classList.add('show'); $('msgInput').focus();
 }
 function cancelReply(){replyTo=null;$('replyPrev').classList.remove('show');}
+function resetInput(){ cancelVoice(); $('msgInput').value=''; $('charCount').textContent=''; }
 function scrollToMsg(mid){
   const el=document.querySelector(`[data-mid="${mid}"]`);
   if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.background='rgba(59,130,246,.1)';setTimeout(()=>el.style.background='',1500);}
@@ -2087,6 +2160,114 @@ async function savePrivacySettings(){
   await db.ref('users/'+me.uid).update({hideLastSeen:hideLS,dmPrivacy});
   me.hideLastSeen=hideLS; me.dmPrivacy=dmPrivacy;
   closeOverlay('privacyModal'); toast('Настройки сохранены','ok');
+}
+
+// ══ ГОЛОСОВЫЕ СООБЩЕНИЯ ══
+let mediaRecorder=null, audioChunks=[], recInterval=null, recSeconds=0;
+
+function fmtDuration(sec){
+  const m=Math.floor(sec/60), s=sec%60;
+  return m+':'+(s<10?'0':'')+s;
+}
+
+async function toggleVoice(){
+  if(mediaRecorder&&mediaRecorder.state==='recording'){ sendVoice(); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks=[]; recSeconds=0;
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if(e.data.size>0) audioChunks.push(e.data); };
+    mediaRecorder.start(100);
+    $('voiceRecorder').classList.add('show');
+    $('voiceBtn').classList.add('recording');
+    $('voiceBtn').title='Остановить';
+    recInterval = setInterval(()=>{
+      recSeconds++;
+      $('recTime').textContent = fmtDuration(recSeconds);
+      if(recSeconds>=120){ sendVoice(); } // макс 2 минуты
+    },1000);
+  } catch(e){ toast('Нет доступа к микрофону','err'); }
+}
+
+function cancelVoice(){
+  if(mediaRecorder){ mediaRecorder.stream.getTracks().forEach(t=>t.stop()); mediaRecorder=null; }
+  clearInterval(recInterval); audioChunks=[];
+  $('voiceRecorder').classList.remove('show');
+  $('voiceBtn').classList.remove('recording');
+  $('voiceBtn').title='Голосовое';
+}
+
+async function sendVoice(){
+  if(!mediaRecorder||audioChunks.length===0){cancelVoice();return;}
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t=>t.stop());
+  clearInterval(recInterval);
+  const dur=recSeconds;
+  await new Promise(r=>setTimeout(r,200)); // дать time на ondataavailable
+  const blob=new Blob(audioChunks,{type:'audio/webm;codecs=opus'});
+  if(blob.size>500000){toast('Голосовое слишком длинное (макс ~2 мин)','err');cancelVoice();return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const path=isDm?'dms/'+curRoom+'/msgs':'rooms/'+curRoom+'/msgs';
+    await db.ref(path).push({text:ev.target.result,uid:me.uid,name:me.displayName,ts:Date.now(),type:'voice',dur});
+    if(isDm&&curDmOther){
+      db.ref('dms/'+curRoom).update({lastMsg:{text:'🎤 Голосовое',ts:Date.now()}});
+      db.ref('dms/'+curRoom+'/unread/'+curDmOther.uid).transaction(v=>(v||0)+1);
+    }
+    playSound('msg');
+  };
+  reader.readAsDataURL(blob);
+  cancelVoice();
+}
+
+const _audioPlayers={};
+function playVoice(el, src){
+  const id=src.substring(0,50);
+  if(_audioPlayers[id]){
+    if(!_audioPlayers[id].paused){_audioPlayers[id].pause();el.querySelector('.voice-play').textContent='▶';return;}
+    _audioPlayers[id].play();el.querySelector('.voice-play').textContent='⏸';return;
+  }
+  const audio=new Audio(src);
+  _audioPlayers[id]=audio;
+  const fill=el.querySelector('.voice-progress-fill');
+  const dur=el.querySelector('.voice-duration');
+  audio.ontimeupdate=()=>{
+    if(audio.duration){fill.style.width=(audio.currentTime/audio.duration*100)+'%';}
+    dur.textContent=fmtDuration(Math.floor(audio.currentTime));
+  };
+  audio.onended=()=>{el.querySelector('.voice-play').textContent='▶';fill.style.width='0%';};
+  audio.play(); el.querySelector('.voice-play').textContent='⏸';
+}
+
+// ══ ОТПРАВКА ИЗОБРАЖЕНИЙ ══
+async function sendImage(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file){return;}
+  if(file.size>2097152){toast('Макс размер фото 2МБ','err');return;}
+  if(!file.type.startsWith('image/')){toast('Только изображения','err');return;}
+  toast('Загрузка фото...','info');
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const path=isDm?'dms/'+curRoom+'/msgs':'rooms/'+curRoom+'/msgs';
+    await db.ref(path).push({text:ev.target.result,uid:me.uid,name:me.displayName,ts:Date.now(),type:'image'});
+    if(isDm&&curDmOther){
+      db.ref('dms/'+curRoom).update({lastMsg:{text:'🖼 Фото',ts:Date.now()}});
+      db.ref('dms/'+curRoom+'/unread/'+curDmOther.uid).transaction(v=>(v||0)+1);
+    }
+    playSound('msg');
+  };
+  reader.readAsDataURL(file);
+}
+
+// Открыть фото на весь экран
+function openImgFullscreen(src){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  const img=document.createElement('img');
+  img.src=src; img.style.cssText='max-width:95vw;max-height:95vh;border-radius:8px;object-fit:contain';
+  overlay.appendChild(img);
+  overlay.onclick=()=>overlay.remove();
+  document.body.appendChild(overlay);
 }
 
 // ══ ЗВУКОВЫЕ УВЕДОМЛЕНИЯ ══
