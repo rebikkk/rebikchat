@@ -602,48 +602,54 @@ function renderUsers(filter = '') {
     return;
   }
 
-  tbody.innerHTML = users.map(u => {
+  tbody.innerHTML = '';
+  users.forEach(u => {
     const isBanned = bannedUsers[u.username];
     const isOnline = u.status === 'online';
-    const regDate = new Date(u.createdAt).toLocaleDateString('ru-RU');
+    const regDate = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ru-RU') : '—';
     const isSelf = adminUser && u.uid === adminUser.uid;
+    const warns = u.warns ? u.warns.length : 0;
 
-    return `<tr>
-      <td>
-        <div class="user-cell">
-          <div class="user-cell-avatar">${u.displayName.charAt(0).toUpperCase()}</div>
-          <div>
-            <div class="user-cell-name">${utils.escapeHtml(u.displayName)}${u.isAdmin ? ' 👑' : ''}</div>
-          </div>
-        </div>
-      </td>
-      <td><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)">@${u.username}</span></td>
-      <td>
-        <span class="badge ${isOnline ? 'badge-green' : 'badge-gray'}">
-          ${isOnline ? '🟢 онлайн' : '⚫ офлайн'}
-        </span>
-      </td>
-      <td>
-        <span class="badge ${u.isAdmin ? 'badge-purple' : 'badge-yellow'}">
-          ${u.isAdmin ? '👑 Админ' : '👤 Участник'}
-        </span>
-        ${isBanned ? '<span class="badge badge-red" style="margin-left:6px">🚫 Бан</span>' : ''}
-      </td>
-      <td style="font-size:12px;color:var(--text2)">${u.status==='online'?'🟢 онлайн':(u.lastSeen?fmtLastSeen(u.lastSeen):'—')}</td>
-      <td>
-        <div class="action-btns">
-          ${!isSelf && !u.isAdmin ? `<button class="btn-sm" style="background:rgba(245,158,11,.15);color:#fde68a;border:1px solid rgba(245,158,11,.25)" onclick="warnUser('${u.uid}','${utils.escapeHtml(u.displayName)}','${u.username}')">⚠️ Варн</button>` : ''}
-          ${!isSelf && !u.isAdmin ? (isBanned
-            ? `<button class="btn-sm btn-unban" onclick="unbanUser('${u.username}','${u.uid}')">✅ Разбан</button>`
-            : `<button class="btn-sm btn-ban" onclick="banUser('${u.username}','${u.uid}','${utils.escapeHtml(u.displayName)}')">🚫 Бан</button>`
-          ) : ''}
-          ${!isSelf && !u.isAdmin ? `<button class="btn-sm btn-promote" onclick="toggleAdmin('${u.uid}', ${u.isAdmin})">⬆️ Промоут</button>` : ''}
-          ${!isSelf ? `<button class="btn-sm btn-del" onclick="deleteUser('${u.uid}','${utils.escapeHtml(u.displayName)}')">🗑</button>` : ''}
-          ${!isSelf ? `<button class="btn-sm" style="background:rgba(59,130,246,.15);color:var(--accent2);border:1px solid rgba(59,130,246,.25)" onclick="adminSendMsg('${u.uid}','${utils.escapeHtml(u.displayName)}')">✉️</button>` : ''}
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>'
+      + '<div class="user-cell">'
+      + '<div class="user-cell-avatar">' + (u.displayName||'?').charAt(0).toUpperCase() + '</div>'
+      + '<div class="user-cell-info">'
+      + '<div class="user-cell-name">' + utils.escapeHtml(u.displayName||'') + (u.verified ? ' ✅' : '') + (warns > 0 ? ' <span style="color:#fde68a;font-size:11px">⚠️'+warns+'</span>' : '') + '</div>'
+      + '<div class="user-cell-username">@' + utils.escapeHtml(u.username||'') + '</div>'
+      + '</div></div></td>'
+      + '<td>' + utils.escapeHtml(u.username||'') + '</td>'
+      + '<td><span class="badge ' + (isOnline ? 'badge-green' : 'badge-gray') + '">' + (isOnline ? 'Онлайн' : 'Офлайн') + '</span></td>'
+      + '<td><span class="badge ' + (u.isAdmin ? 'badge-purple' : 'badge-gray') + '">' + (u.isAdmin ? 'Админ' : 'Участник') + '</span></td>'
+      + '<td>' + regDate + '</td>'
+      + '<td><div style="display:flex;gap:4px;flex-wrap:wrap">'
+      + ((!isSelf && !u.isAdmin) ? '<button class="btn-sm warn-btn" style="background:rgba(245,158,11,.15);color:#fde68a;border:1px solid rgba(245,158,11,.25)">⚠️ Варн</button>' : '')
+      + ((!isSelf && !u.isAdmin) ? (isBanned
+          ? '<button class="btn-sm btn-unban unban-btn">✅ Разбан</button>'
+          : '<button class="btn-sm btn-ban ban-btn">🚫 Бан</button>') : '')
+      + ((!isSelf && !u.isAdmin) ? '<button class="btn-sm btn-promote promo-btn">' + (u.isAdmin ? '↓ Разжаловать' : '⭐ Промоут') + '</button>' : '')
+      + (!isSelf ? '<button class="btn-sm btn-del del-btn">🗑</button>' : '')
+      + (!isSelf ? '<button class="btn-sm msg-btn" style="background:rgba(59,130,246,.15);color:var(--accent2);border:1px solid rgba(59,130,246,.25)">✉️</button>' : '')
+      + '</div></td>';
+
+    // Назначить обработчики через JS (без onclick в HTML)
+    if (!isSelf && !u.isAdmin) {
+      const warnBtn = tr.querySelector('.warn-btn');
+      if(warnBtn) warnBtn.onclick = () => warnUser(u.uid, u.displayName, u.username);
+      const banBtn = tr.querySelector('.ban-btn');
+      if(banBtn) banBtn.onclick = () => banUser(u.username, u.uid, u.displayName);
+      const unbanBtn = tr.querySelector('.unban-btn');
+      if(unbanBtn) unbanBtn.onclick = () => unbanUser(u.username, u.uid);
+      const promoBtn = tr.querySelector('.promo-btn');
+      if(promoBtn) promoBtn.onclick = () => toggleAdmin(u.uid, u.displayName, u.isAdmin);
+    }
+    const delBtn = tr.querySelector('.del-btn');
+    if(delBtn) delBtn.onclick = () => deleteUser(u.uid, u.displayName);
+    const msgBtn = tr.querySelector('.msg-btn');
+    if(msgBtn) msgBtn.onclick = () => adminSendMsg(u.uid, u.displayName);
+
+    tbody.appendChild(tr);
+  });
 }
 
 function renderChannels() {
@@ -770,4 +776,289 @@ function switchTab(name) {
   });
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  if(na
+  if(name==='reports') loadReports();
+  if(name==='logs') loadLogs();
+  if(name==='analytics') loadAnalytics();
+  if(name==='system') loadSystem();
+
+}
+
+function filterUsers(query) { renderUsers(query.toLowerCase()); }
+
+// ══ СИСТЕМА ══
+async function loadSystem(){
+  const snap = await db.ref('settings/maintenance').get();
+  document.getElementById('maintenanceToggle').checked = snap.val()===true;
+  const annSnap = await db.ref('settings/announcement').get();
+  const ann = annSnap.val()||{};
+  if(ann.text) document.getElementById('announcementText').value = ann.text;
+  if(ann.type) document.getElementById('announcementType').value = ann.type;
+}
+
+async function toggleMaintenance(on){
+  await db.ref('settings/maintenance').set(on||null);
+  toast(on?'⚠️ Режим обслуживания включён':'✅ Сайт доступен','ok');
+}
+
+async function saveAnnouncement(){
+  const text = document.getElementById('announcementText').value.trim();
+  const type = document.getElementById('announcementType').value;
+  if(!text){ alert('Введи текст'); return; }
+  await db.ref('settings/announcement').set({text, type, ts:Date.now(), by:adminUser.username});
+  toast('Объявление сохранено','ok');
+}
+
+async function clearAnnouncement(){
+  await db.ref('settings/announcement').remove();
+  document.getElementById('announcementText').value='';
+  toast('Объявление удалено','ok');
+}
+
+async function exportData(type){
+  let data = {};
+  if(type==='users'||type==='all'){
+    const s = await db.ref('users').get(); data.users=s.val();
+  }
+  if(type==='rooms'||type==='all'){
+    const s = await db.ref('rooms').get(); data.rooms=s.val();
+  }
+  if(type==='all'){
+    const s = await db.ref('banned').get(); data.banned=s.val();
+  }
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`rechat_backup_${type}_${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Экспорт готов','ok');
+}
+
+// ══ СИСТЕМА ВАРНОВ ══
+async function warnUser(uid, displayName, username) {
+  const reason = prompt(`Причина предупреждения для ${displayName}:`);
+  if(!reason) return;
+  const snap = await db.ref('users/'+uid+'/warns').get();
+  const warns = snap.val()||[];
+  const newWarns = [...warns, {reason, by:adminUser.username, ts:Date.now()}];
+  await db.ref('users/'+uid+'/warns').set(newWarns);
+  // Автобан при 3 варнах
+  if(newWarns.length >= 3) {
+    if(confirm(`${displayName} получил(а) 3 предупреждения. Заблокировать автоматически?`)) {
+      await banUser(username, uid, displayName);
+      return;
+    }
+  }
+  // Уведомить пользователя через системное сообщение
+  const dmSnap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
+  const dms = dmSnap.val()||{};
+  let dmId = null;
+  for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
+  if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
+  await db.ref('dms/'+dmId+'/msgs').push({
+    text:`⚠️ Предупреждение #${newWarns.length}/3: ${reason}`,
+    uid:adminUser.uid, name:'Система', ts:Date.now(), type:'text'
+  });
+  alert(`Предупреждение #${newWarns.length}/3 отправлено ${displayName}`);
+  renderUsers();
+}
+
+// ══ РАССЫЛКА ══
+async function sendBroadcast() {
+  const title = document.getElementById('broadcastTitle').value.trim();
+  const text = document.getElementById('broadcastText').value.trim();
+  const status = document.getElementById('broadcastStatus');
+  if(!text) { alert('Введи текст'); return; }
+  if(!confirm(`Отправить рассылку ${Object.keys(allUsers).length} пользователям?`)) return;
+  status.textContent = 'Отправка...';
+  const users = Object.values(allUsers).filter(u=>u.uid!==adminUser.uid);
+  let sent = 0;
+  for(const u of users){
+    try {
+      const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
+      const dms = snap.val()||{};
+      let dmId = null;
+      for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[u.uid]){dmId=id;break;} }
+      if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[u.uid]:true},createdAt:Date.now()}); }
+      const msg = title ? `📣 **${title}**\n\n${text}` : `📣 ${text}`;
+      await db.ref('dms/'+dmId+'/msgs').push({text:msg, uid:adminUser.uid, name:'📣 Рассылка', ts:Date.now(), type:'text'});
+      sent++;
+      status.textContent = `Отправлено: ${sent}/${users.length}`;
+    } catch(e){ console.error(e); }
+  }
+  document.getElementById('broadcastText').value = '';
+  document.getElementById('broadcastTitle').value = '';
+  status.textContent = `✅ Рассылка отправлена ${sent} пользователям`;
+}
+
+// ══ АНАЛИТИКА ══
+async function loadAnalytics() {
+  const users = Object.values(allUsers);
+  const now = Date.now();
+  const weekAgo = now - 7*24*60*60*1000;
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+
+  // Новые пользователи за неделю
+  const newUsers = users.filter(u=>u.createdAt&&u.createdAt>weekAgo).length;
+  document.getElementById('statNewUsers').textContent = newUsers;
+
+  // Загрузить все сообщения из всех комнат для статистики
+  const roomsSnap = await db.ref('rooms').get();
+  const rooms = roomsSnap.val()||{};
+  let msgsToday=0, msgsWeek=0;
+  const dayMap = {}; // ts -> count
+  const userMsgCount = {};
+
+  for(const [rid,room] of Object.entries(rooms)){
+    if(!room.msgs) continue;
+    for(const msg of Object.values(room.msgs)){
+      if(!msg.ts) continue;
+      if(msg.ts > weekAgo){ msgsWeek++; }
+      if(msg.ts > todayStart.getTime()){ msgsToday++; }
+      // По дням
+      const day = new Date(msg.ts).toLocaleDateString('ru-RU',{day:'numeric',month:'numeric'});
+      dayMap[day]=(dayMap[day]||0)+1;
+      // По юзерам
+      if(msg.uid) userMsgCount[msg.uid]=(userMsgCount[msg.uid]||0)+1;
+    }
+  }
+
+  document.getElementById('statMsgsToday').textContent = msgsToday;
+  document.getElementById('statMsgsWeek').textContent = msgsWeek;
+
+  // Топ пользователь
+  const topUid = Object.entries(userMsgCount).sort((a,b)=>b[1]-a[1])[0];
+  if(topUid){
+    const u = allUsers[topUid[0]];
+    document.getElementById('statTopUser').textContent = (u?u.displayName||u.username:'—')+' ('+topUid[1]+')';
+  }
+
+  // График последних 7 дней
+  const chart = document.getElementById('activityChart');
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date(now - i*86400000);
+    days.push(d.toLocaleDateString('ru-RU',{day:'numeric',month:'numeric'}));
+  }
+  const maxVal = Math.max(1, ...days.map(d=>dayMap[d]||0));
+  chart.innerHTML = days.map(day=>{
+    const val = dayMap[day]||0;
+    const h = Math.round((val/maxVal)*100);
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="font-size:11px;color:var(--text3)">${val||0}</div>
+      <div style="width:100%;background:var(--accent);border-radius:4px 4px 0 0;height:${h}px;min-height:2px;opacity:.8;transition:height .3s"></div>
+      <div style="font-size:10px;color:var(--text3);white-space:nowrap">${day}</div>
+    </div>`;
+  }).join('');
+
+  // Топ пользователей
+  const topList = document.getElementById('topUsersList');
+  const top10 = Object.entries(userMsgCount).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  topList.innerHTML = top10.length ? top10.map(([uid,cnt],i)=>{
+    const u=allUsers[uid];
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid rgba(30,45,69,.5)">
+      <div style="font-size:16px;font-weight:700;color:var(--text3);width:24px">${i+1}</div>
+      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${u?(u.displayName||'?').charAt(0):'?'}</div>
+      <div style="flex:1"><div style="font-weight:500">${u?utils.escapeHtml(u.displayName||u.username||uid):uid}</div><div style="font-size:12px;color:var(--text3)">@${u?u.username||'—':'—'}</div></div>
+      <div style="font-size:14px;font-weight:700;color:var(--accent)">${cnt} сообщ.</div>
+    </div>`;
+  }).join('') : '<div class="empty-state">Нет данных</div>';
+}
+
+function fmtLastSeen(ts) {
+  if(!ts) return '—';
+  const diff=Date.now()-ts, min=Math.floor(diff/60000), hrs=Math.floor(diff/3600000), days=Math.floor(diff/86400000);
+  if(diff<60000) return 'только что';
+  if(min<60) return min+' мин. назад';
+  if(hrs<24) return hrs+' ч. назад';
+  if(days<7) return days+' дн. назад';
+  return new Date(ts).toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
+}
+
+async function loadReports() {
+  const snap = await db.ref('reports').limitToLast(100).get();
+  const list = document.getElementById('reportsList');
+  const reports = snap.val()||{};
+  const entries = Object.entries(reports).sort((a,b)=>b[1].ts-a[1].ts);
+  if(!entries.length){ list.innerHTML='<div class="empty-state">Жалоб нет 🎉</div>'; return; }
+  const reasons = {spam:'🗑 Спам',porn:'🔞 Порнография',terror:'💣 Терроризм',extremism:'☠️ Экстремизм',nazism:'⚡ Нацизм',violence:'⚔️ Насилие',fraud:'💰 Мошенничество',hate:'😤 Оскорбления',other:'❓ Другое'};
+  list.innerHTML = entries.map(([id,r])=>`
+    <div style="padding:16px 20px;border-bottom:1px solid rgba(30,45,69,.5)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-weight:700;font-size:14px">${reasons[r.reason]||r.reason}</span>
+            <span class="badge ${r.status==='new'?'badge-red':'badge-gray'}">${r.status==='new'?'Новая':'Обработана'}</span>
+            <span class="badge badge-gray" style="font-size:10px">${r.type==='msg'?'сообщение':r.type==='user'?'пользователь':'чат/канал'}</span>
+          </div>
+          ${r.msgText?`<div style="background:rgba(0,0,0,.2);border-left:3px solid var(--red);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--text2);margin-bottom:8px;max-width:400px">${utils.escapeHtml(r.msgText)}</div>`:''}
+          <div style="font-size:12px;color:var(--text3)">От @${r.byUsername||'—'} • ${new Date(r.ts).toLocaleString('ru-RU')}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">Цель: ${r.targetId}${r.comment?' • '+utils.escapeHtml(r.comment):''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          ${r.status==='new'?`<button class="btn-sm btn-unban" onclick="resolveReport('${id}')">✅ Пропустить</button>`:''}
+          ${r.msgAuthorId?`<button class="btn-sm btn-ban" onclick="banUserById('${r.msgAuthorId}')">🚫 Заблокировать</button>`:''}
+          <button class="btn-sm btn-del" onclick="deleteReport('${id}')">🗑 Удалить</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+async function banUserById(uid) {
+  const snap = await db.ref('users/'+uid).get();
+  const u = snap.val();
+  if(!u) return;
+  if(!confirm('Заблокировать '+u.displayName+'?')) return;
+  await Promise.all([
+    db.ref('banned/'+u.username).set({bannedAt:Date.now(),bannedBy:adminUser.username}),
+    db.ref('users/'+uid).update({isBanned:true})
+  ]);
+  alert(u.displayName+' заблокирован');
+  loadReports();
+}
+
+async function resolveReport(id) {
+  await db.ref('reports/'+id+'/status').set('resolved');
+  loadReports();
+}
+async function deleteReport(id) {
+  await db.ref('reports/'+id).remove();
+  loadReports();
+}
+
+async function loadLogs() {
+  const snap = await db.ref('logs').limitToLast(200).get();
+  const list = document.getElementById('logsList');
+  const logs = snap.val()||{};
+  const entries = Object.entries(logs).sort((a,b)=>b[1].ts-a[1].ts);
+  if(!entries.length){ list.innerHTML='<div class="empty-state">Логов нет</div>'; return; }
+  const colors = {lj:'var(--green)',lm:'var(--accent)',lb:'var(--red)',lc:'var(--yellow)',le:'var(--text3)'};
+  list.innerHTML = entries.map(([,l])=>`
+    <div style="padding:8px 16px;border-bottom:1px solid rgba(30,45,69,.5);display:flex;align-items:center;gap:10px">
+      <div style="width:4px;height:36px;border-radius:2px;background:${colors[l.type]||'var(--text3)'}"></div>
+      <div style="flex:1">
+        <div style="font-size:13px">${utils.escapeHtml(l.text||'')}</div>
+        <div style="font-size:11px;color:var(--text3)">${new Date(l.ts).toLocaleString('ru-RU')} • @${l.by||'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function adminSendMsg(uid, displayName) {
+  const msg = prompt('Сообщение для ' + displayName + ':');
+  if(!msg||!msg.trim()) return;
+  const snap = await db.ref('dms').orderByChild('p/'+adminUser.uid).equalTo(true).get();
+  const dms = snap.val()||{};
+  let dmId = null;
+  for(const [id,dm] of Object.entries(dms)){ if(dm.p&&dm.p[adminUser.uid]&&dm.p[uid]){dmId=id;break;} }
+  if(!dmId){ const ref=db.ref('dms').push(); dmId=ref.key; await ref.set({p:{[adminUser.uid]:true,[uid]:true},createdAt:Date.now()}); }
+  await db.ref('dms/'+dmId+'/msgs').push({text:msg.trim(),uid:adminUser.uid,name:adminUser.displayName,ts:Date.now(),type:'text'});
+  alert('Сообщение отправлено!');
+}
+function closeModal() { document.getElementById('createChannelModal').classList.remove('show'); }
+document.getElementById('createChannelModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+</script>
+<script src="security.js"></script>
+</body>
+</html>
