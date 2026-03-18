@@ -655,47 +655,59 @@ function renderUsers(filter = '') {
 function renderChannels() {
   const grid = document.getElementById('channelsGrid');
   const chs = Object.entries(allChannels).sort((a,b) => (a[1].order||0)-(b[1].order||0));
-
   if (chs.length === 0) {
-    grid.innerHTML = '<div class="empty-state">Нет каналов</div>';
+    grid.innerHTML = '<div class="empty-state">Нет каналов/чатов</div>';
     return;
   }
-
-  grid.innerHTML = chs.map(([id, ch]) => `
-    <div class="channel-card">
-      <div class="channel-card-header">
-        <span class="channel-card-icon">${ch.icon || '💬'}</span>
-        <span class="channel-card-name">#${ch.name}</span>
-      </div>
-      <div class="channel-card-desc">${ch.description || 'Без описания'}</div>
-      <div class="channel-card-actions">
-        <button class="btn-danger" onclick="deleteChannel('${id}','${ch.name}')">🗑 Удалить</button>
-        <button class="btn-primary" onclick="clearChannel('${id}','${ch.name}')">🧹 Очистить</button>
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = '';
+  chs.forEach(([id, ch]) => {
+    const card = document.createElement('div');
+    card.className = 'channel-card';
+    const icon = ch.icon || '💬';
+    const name = utils.escapeHtml(ch.name || '');
+    const desc = utils.escapeHtml(ch.description || 'Без описания');
+    const type = ch.type === 'channel' ? '📢 Канал' : '💬 Чат';
+    const msgs = ch.msgs ? Object.keys(ch.msgs).length : 0;
+    card.innerHTML = '<div class="channel-card-header">'
+      + '<span class="channel-card-icon">' + icon + '</span>'
+      + '<div><div class="channel-card-name">' + name + '</div>'
+      + '<div class="channel-card-meta">' + type + ' • ' + msgs + ' сообщений</div></div></div>'
+      + '<div class="channel-card-desc">' + desc + '</div>'
+      + '<div class="channel-card-actions"></div>';
+    const acts = card.querySelector('.channel-card-actions');
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger'; delBtn.textContent = '🗑 Удалить';
+    delBtn.onclick = () => deleteChannel(id, ch.name);
+    const clrBtn = document.createElement('button');
+    clrBtn.className = 'btn-primary'; clrBtn.textContent = '🧹 Очистить';
+    clrBtn.onclick = () => clearChannel(id, ch.name);
+    acts.appendChild(delBtn); acts.appendChild(clrBtn);
+    grid.appendChild(card);
+  });
 }
 
 function renderBanned() {
   const list = document.getElementById('bannedList');
   const banned = Object.entries(bannedUsers);
-
   if (banned.length === 0) {
-    list.innerHTML = '<div class="empty-state">Нет заблокированных пользователей 🎉</div>';
+    list.innerHTML = '<div class="empty-state">Нет заблокированных 🎉</div>';
     return;
   }
-
-  list.innerHTML = banned.map(([username, data]) => {
+  list.innerHTML = '';
+  banned.forEach(([username, data]) => {
     const date = data.bannedAt ? new Date(data.bannedAt).toLocaleString('ru-RU') : '—';
-    return `<div class="ban-entry">
-      <div class="user-cell-avatar">${username.charAt(0).toUpperCase()}</div>
-      <div style="flex:1">
-        <div style="font-weight:600">@${username}</div>
-        <div style="font-size:12px;color:var(--text3)">Заблокирован: ${date} • Кем: @${data.bannedBy || '—'}</div>
-      </div>
-      <button class="btn-sm btn-unban" onclick="unbanByUsername('${username}')">✅ Разбанить</button>
-    </div>`;
-  }).join('');
+    const by = data.bannedBy || '—';
+    const entry = document.createElement('div');
+    entry.className = 'ban-entry';
+    entry.innerHTML = '<div class="user-cell-avatar">' + username.charAt(0).toUpperCase() + '</div>'
+      + '<div style="flex:1"><div style="font-weight:600">@' + utils.escapeHtml(username) + '</div>'
+      + '<div style="font-size:12px;color:var(--text3)">Заблокирован: ' + date + ' • Кем: @' + utils.escapeHtml(by) + '</div></div>';
+    const unbanBtn = document.createElement('button');
+    unbanBtn.className = 'btn-sm btn-unban'; unbanBtn.textContent = '✅ Разбанить';
+    unbanBtn.onclick = () => unbanByUsername(username);
+    entry.appendChild(unbanBtn);
+    list.appendChild(entry);
+  });
 }
 
 // Actions
@@ -981,27 +993,34 @@ async function loadReports() {
   const reports = snap.val()||{};
   const entries = Object.entries(reports).sort((a,b)=>b[1].ts-a[1].ts);
   if(!entries.length){ list.innerHTML='<div class="empty-state">Жалоб нет 🎉</div>'; return; }
-  const reasons = {spam:'🗑 Спам',porn:'🔞 Порнография',terror:'💣 Терроризм',extremism:'☠️ Экстремизм',nazism:'⚡ Нацизм',violence:'⚔️ Насилие',fraud:'💰 Мошенничество',hate:'😤 Оскорбления',other:'❓ Другое'};
-  list.innerHTML = entries.map(([id,r])=>`
-    <div style="padding:16px 20px;border-bottom:1px solid rgba(30,45,69,.5)">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <span style="font-weight:700;font-size:14px">${reasons[r.reason]||r.reason}</span>
-            <span class="badge ${r.status==='new'?'badge-red':'badge-gray'}">${r.status==='new'?'Новая':'Обработана'}</span>
-            <span class="badge badge-gray" style="font-size:10px">${r.type==='msg'?'сообщение':r.type==='user'?'пользователь':'чат/канал'}</span>
-          </div>
-          ${r.msgText?`<div style="background:rgba(0,0,0,.2);border-left:3px solid var(--red);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--text2);margin-bottom:8px;max-width:400px">${utils.escapeHtml(r.msgText)}</div>`:''}
-          <div style="font-size:12px;color:var(--text3)">От @${r.byUsername||'—'} • ${new Date(r.ts).toLocaleString('ru-RU')}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">Цель: ${r.targetId}${r.comment?' • '+utils.escapeHtml(r.comment):''}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
-          ${r.status==='new'?`<button class="btn-sm btn-unban" onclick="resolveReport('${id}')">✅ Пропустить</button>`:''}
-          ${r.msgAuthorId?`<button class="btn-sm btn-ban" onclick="banUserById('${r.msgAuthorId}')">🚫 Заблокировать</button>`:''}
-          <button class="btn-sm btn-del" onclick="deleteReport('${id}')">🗑 Удалить</button>
-        </div>
-      </div>
-    </div>`).join('');
+  const reasons = {spam:'🗑 Спам',porn:'🔞 Порнография',terror:'💣 Терроризм',
+    extremism:'☠️ Экстремизм',nazism:'⚡ Нацизм',violence:'⚔️ Насилие',
+    fraud:'💰 Мошенничество',hate:'😤 Оскорбления',other:'❓ Другое'};
+  list.innerHTML = '';
+  entries.forEach(([id,r]) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:16px 20px;border-bottom:1px solid rgba(30,45,69,.5)';
+    const isNew = r.status === 'new';
+    div.innerHTML = '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      + '<div style="flex:1;min-width:200px">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      + '<span style="font-weight:700;font-size:14px">' + (reasons[r.reason]||r.reason) + '</span>'
+      + '<span class="badge ' + (isNew?'badge-red':'badge-gray') + '">' + (isNew?'Новая':'Обработана') + '</span>'
+      + '<span class="badge badge-gray" style="font-size:10px">' + (r.type==='msg'?'сообщение':r.type==='user'?'пользователь':'чат') + '</span>'
+      + '</div>'
+      + (r.msgText ? '<div style="background:rgba(0,0,0,.2);border-left:3px solid var(--red);padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--text2);margin-bottom:8px">' + utils.escapeHtml(r.msgText) + '</div>' : '')
+      + '<div style="font-size:12px;color:var(--text3)">От @' + utils.escapeHtml(r.byUsername||'—') + ' • ' + new Date(r.ts).toLocaleString('ru-RU') + '</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0" class="report-acts-'+id+'"></div>'
+      + '</div>';
+    const acts = div.querySelector('.report-acts-'+id);
+    if(acts) {
+      if(isNew){ const rb=document.createElement('button'); rb.className='btn-sm btn-unban'; rb.textContent='✅ Пропустить'; rb.onclick=()=>resolveReport(id); acts.appendChild(rb); }
+      if(r.msgAuthorId){ const bb=document.createElement('button'); bb.className='btn-sm btn-ban'; bb.textContent='🚫 Заблокировать'; bb.onclick=()=>banUserById(r.msgAuthorId); acts.appendChild(bb); }
+      const db2=document.createElement('button'); db2.className='btn-sm btn-del'; db2.textContent='🗑 Удалить'; db2.onclick=()=>deleteReport(id); acts.appendChild(db2);
+    }
+    list.appendChild(div);
+  });
 }
 
 async function banUserById(uid) {
@@ -1027,20 +1046,22 @@ async function deleteReport(id) {
 }
 
 async function loadLogs() {
-  const snap = await db.ref('logs').limitToLast(200).get();
+  const snap = await db.ref('logs').limitToLast(100).get();
   const list = document.getElementById('logsList');
   const logs = snap.val()||{};
   const entries = Object.entries(logs).sort((a,b)=>b[1].ts-a[1].ts);
   if(!entries.length){ list.innerHTML='<div class="empty-state">Логов нет</div>'; return; }
-  const colors = {lj:'var(--green)',lm:'var(--accent)',lb:'var(--red)',lc:'var(--yellow)',le:'var(--text3)'};
-  list.innerHTML = entries.map(([,l])=>`
-    <div style="padding:8px 16px;border-bottom:1px solid rgba(30,45,69,.5);display:flex;align-items:center;gap:10px">
-      <div style="width:4px;height:36px;border-radius:2px;background:${colors[l.type]||'var(--text3)'}"></div>
-      <div style="flex:1">
-        <div style="font-size:13px">${utils.escapeHtml(l.text||'')}</div>
-        <div style="font-size:11px;color:var(--text3)">${new Date(l.ts).toLocaleString('ru-RU')} • @${l.by||'—'}</div>
-      </div>
-    </div>`).join('');
+  const colors = {lb:'var(--red)',lm:'var(--accent)',lc:'var(--green)',ls:'var(--yellow)'};
+  list.innerHTML = '';
+  entries.forEach(([,l]) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:10px 20px;border-bottom:1px solid rgba(30,45,69,.4)';
+    const color = colors[l.type] || 'var(--text3)';
+    div.innerHTML = '<div style="width:4px;height:36px;border-radius:2px;background:'+color+';flex-shrink:0"></div>'
+      + '<div style="flex:1"><div style="font-size:13px">' + utils.escapeHtml(l.text||'') + '</div>'
+      + '<div style="font-size:11px;color:var(--text3)">' + fmtLastSeen(l.ts) + ' • @' + utils.escapeHtml(l.by||'—') + '</div></div>';
+    list.appendChild(div);
+  });
 }
 
 async function adminSendMsg(uid, displayName) {
