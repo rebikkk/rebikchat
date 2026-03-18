@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://fonts.googleapis.com https://*.googleapis.com https://*.firebaseapp.com; script-src-elem 'self' 'unsafe-inline' https://www.gstatic.com https://*.googleapis.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; img-src 'self' data: blob: https:; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none'; worker-src blob:;">
 <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
@@ -962,6 +962,49 @@ const formatText = t => {
 const _safeAvatar = d => d && (d.startsWith('data:image') || d.startsWith('https://')) ? d : null;
 const avatarOf = u => { const src=u&&_safeAvatar(u.avatarData); return src?`<img src="${src}">`:(u&&u.displayName?u.displayName.charAt(0).toUpperCase():'?'); };
 
+// Рендеринг содержимого сообщения по типу
+const renderMsgContent = msg => {
+  const type = msg.type || 'text';
+  if(type === 'image') {
+    const src = _safeAvatar(msg.text);
+    if(!src) return '<span style="color:var(--text3);font-size:12px">🖼 Изображение недоступно</span>';
+    return `<img src="${src}" class="msg-img" onclick="openImgFullscreen('${src}')" loading="lazy">`;
+  }
+  if(type === 'voice') {
+    const src = msg.text;
+    const dur = msg.dur ? fmtDuration(msg.dur) : '—';
+    return `<div class="voice-msg" onclick="playVoice(this,'${src}')">
+      <div class="voice-play">▶</div>
+      <div class="voice-progress"><div class="voice-progress-fill"></div></div>
+      <span class="voice-duration">${dur}</span>
+    </div>`;
+  }
+  if(type === 'sticker') {
+    return `<span style="font-size:40px;line-height:1">${esc(msg.text||'')}</span>`;
+  }
+  if(type === 'poll') {
+    // Poll рендерится отдельно — возвращаем заглушку (poll-messages handled in renderMsg)
+    return '';
+  }
+  // text / forwarded — markdown + html escape
+  return formatText(msg.text||'');
+};
+
+// Рендеринг опроса (poll)
+function renderPollMsg(id, msg){
+  if(!msg.opts) return '<div class="poll-box"><div class="poll-q">'+esc(msg.q||'Голосование')+'</div></div>';
+  const totalVotes = Object.values(msg.opts).reduce((s,o)=>s+Object.keys(o.v||{}).length,0);
+  let html = '<div class="poll-box"><div class="poll-q">'+esc(msg.q||'')+'</div>';
+  Object.entries(msg.opts).forEach(([oid,opt])=>{
+    const cnt = Object.keys(opt.v||{}).length;
+    const pct = totalVotes>0 ? Math.round(cnt/totalVotes*100) : 0;
+    const voted = opt.v&&opt.v[me.uid];
+    html += '<div class="poll-opt'+(voted?' v':'')+'" onclick="votePoll(''+id+'',''+oid+'')"><div class="poll-bar"><div class="poll-fill" style="width:'+pct+'%"></div><span class="poll-txt">'+esc(opt.t||'')+'</span><span class="poll-pct">'+pct+'%</span></div></div>';
+  });
+  html += '<div class="poll-total">'+totalVotes+' голосов</div></div>';
+  return html;
+}
+
 // ══ STATE ══
 let me=null, curRoom=null, curRoomType=null, curDmOther=null, isDm=false;
 let replyTo=null, allUsers={}, allRooms={}, msgRef=null, typingRef=null, typingTimer=null;
@@ -1296,7 +1339,10 @@ function renderMsg(id,msg,container,showHead){
     <div class="msg-body">
       ${showHead&&!isOwn?`<div class="msg-meta"><span class="${nameClass}" onclick="viewProfile('${msg.uid}')">${displayName}${roleTag}${verTag}</span><span class="msg-time">${fmtTime(msg.ts)}</span>${editedTag}</div>`:''}
       ${repHtml}
-      <div class="bubble">${esc(msg.text||'').replace(/\n/g,'<br>')}</div>
+      ${(()=>{
+        if(msg.type==='poll') return renderPollMsg(id,msg);
+        return '<div class="bubble">'+renderMsgContent(msg)+'</div>';
+      })()}
       ${reactHtml}
       ${isOwn&&showHead?`<div class="msg-meta" style="flex-direction:row-reverse"><span class="msg-time">${fmtTime(msg.ts)}</span>${editedTag}${readTag}</div>`:''}
     </div>
@@ -1336,12 +1382,18 @@ function renderMsg(id,msg,container,showHead){
 // ══ SEND MESSAGE ══
 const MAX_LEN=2000;
 function filterMsg(raw){
+  if(typeof raw !== 'string') return {ok:false,reason:'Неверный тип'};
   let t=raw.trim();
   if(!t) return {ok:false,reason:'Пустое сообщение'};
   if(t.length>MAX_LEN) return {ok:false,reason:`Максимум ${MAX_LEN} символов`};
+  // Убрать управляющие символы (кроме \n, \t)
   t=t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');
+  // Не больше 4 переносов подряд
   t=t.replace(/\n{5,}/g,'\n\n\n\n');
-  t=t.replace(/(.)\\1{29,}/g,(m,c)=>c.repeat(29));
+  // Не больше 30 одинаковых символов подряд (анти-флуд символами)
+  t=t.replace(/(.+?)\1{15,}/g,(m,c)=>c.repeat(5));
+  // Убрать невидимые Unicode-символы (zero-width, bidi overrides и т.п.)
+  t=t.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g,'');
   if(!t.trim()) return {ok:false,reason:'Только спецсимволы'};
   return {ok:true,text:t};
 }
@@ -1352,18 +1404,21 @@ async function sendMsg(){
 
   const now=Date.now();
   const timeDiff=now-lastMsgTs;
-  // Флудвейт: минимум 1 сек между сообщениями
-  if(timeDiff<1000){
+  // Флудвейт: минимум 800мс между сообщениями
+  if(timeDiff<800){
     spamCount++;
-    if(spamCount>=3){
-      const wait=Math.min(30,spamCount*2); // до 30 секунд штраф
+    if(spamCount>=4){
+      const wait=Math.min(60,spamCount*3);
+      const until=now+wait*1000;
       toast(`Флудвейт: подожди ${wait} сек`,'err');
-      setTimeout(()=>{spamCount=Math.max(0,spamCount-1);},wait*1000);
+      // Заблокировать кнопку отправки
+      const sb=$('sendBtn'); sb.disabled=true;
+      setTimeout(()=>{ sb.disabled=false; spamCount=0; },wait*1000);
       return;
     }
     toast('Не так быстро!','err'); return;
   }
-  spamCount=Math.max(0,spamCount-1);
+  if(timeDiff>5000) spamCount=Math.max(0,spamCount-1);
   lastMsgTs=now;
 
   const f=filterMsg(raw); if(!f.ok){toast(f.reason,'err');return;}
@@ -1396,7 +1451,13 @@ async function sendMsg(){
 
   inp.value=''; inp.style.height=''; $('charCount').textContent=''; cancelReply();
   $('sendBtn').disabled=true;
-  const ref=await db.ref(path).push(msg);
+  try {
+    await db.ref(path).push(msg);
+  } catch(e) {
+    toast('Ошибка отправки: '+( e.code==='PERMISSION_DENIED'?'нет доступа':e.message),'err');
+    $('sendBtn').disabled=false;
+    return;
+  }
   $('sendBtn').disabled=false;
 
   // Обновить lastMsg и unread для ЛС
@@ -2150,15 +2211,11 @@ async function showRecommendedChannels(){
   $('recommendModal').classList.add('show');
 }
 
-async function subscribeRecommended(channelId, btn){
+async function subscribeRecommended_UNUSED(channelId, btn){
   await db.ref('rooms/'+channelId+'/subscribers/'+me.uid).set(true);
   btn.textContent='✓ Подписан'; btn.style.background='var(--green)'; btn.disabled=true;
 }
-function closeRecommendations(){
-  $('recommendModal').classList.remove('show');
-  db.ref('users/'+me.uid+'/isNewUser').remove();
-  me.isNewUser=false;
-}
+// closeRecommendations — see closeRecommend below
 
 // ══ ЦВЕТ АКЦЕНТА ══
 function setAccent(color, color2){
@@ -2475,7 +2532,7 @@ async function sendVoice(){
   const dur=recSeconds;
   await new Promise(r=>setTimeout(r,200)); // дать time на ondataavailable
   const blob=new Blob(audioChunks,{type:'audio/webm;codecs=opus'});
-  if(blob.size>500000){toast('Голосовое слишком длинное (макс ~2 мин)','err');cancelVoice();return;}
+  if(blob.size>800000){toast('Голосовое слишком большое (макс ~2 мин)','err');cancelVoice();return;}
   const reader=new FileReader();
   reader.onload=async ev=>{
     const path=isDm?'dms/'+curRoom+'/msgs':'rooms/'+curRoom+'/msgs';
@@ -2531,12 +2588,18 @@ async function sendImage(e){
 
 // Открыть фото на весь экран
 function openImgFullscreen(src){
+  // Только data:image или https:// — не допускать javascript: и прочего
+  if(!src||(!src.startsWith('data:image')&&!src.startsWith('https://'))) return;
   const overlay=document.createElement('div');
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
   const img=document.createElement('img');
   img.src=src; img.style.cssText='max-width:95vw;max-height:95vh;border-radius:8px;object-fit:contain';
+  img.onerror=()=>overlay.remove();
   overlay.appendChild(img);
   overlay.onclick=()=>overlay.remove();
+  // Закрыть по Escape
+  const onKey=e=>{if(e.key==='Escape'){overlay.remove();document.removeEventListener('keydown',onKey);}};
+  document.addEventListener('keydown',onKey);
   document.body.appendChild(overlay);
 }
 
@@ -2594,6 +2657,7 @@ async function subscribeRecommend(roomId, btn){
   btn.style.background = 'var(--green)';
 }
 
+function closeRecommendations(){ closeRecommend(); }
 function closeRecommend(){
   $('recommendModal').classList.remove('show');
   localStorage.setItem('rechat_recommend_shown_'+me.uid, '1');
@@ -2605,6 +2669,11 @@ document.addEventListener('DOMContentLoaded', () => {
 const urlJoin=new URLSearchParams(location.search).get('join');
 if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);}); }
 </script>
-<script src="security.js?v=5079"></script>
+<script>
+// Анти-iframe: не давать встраивать в iframe
+if(window.self !== window.top){
+  window.top.location = window.self.location;
+}
+</script>
 </body>
 </html>
