@@ -8,6 +8,7 @@
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <title>ReChat</title>
+<!-- v1773827138 -->
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -971,9 +972,26 @@ let pendingWallpaper=null, reportTargetId=null, reportTargetType=null;
 // ══ AUTH ══
 auth.onAuthStateChanged(async user => {
   if(!user){ location.href='index.html'; return; }
-  const snap = await db.ref('users/'+user.uid).get();
-  if(!snap.exists()){ auth.signOut(); location.href='index.html'; return; }
-  me = snap.val();
+  let snap;
+  try {
+    snap = await db.ref('users/'+user.uid).get();
+  } catch(e) {
+    // Firebase Rules или сеть — подождать и попробовать снова
+    setTimeout(()=>location.reload(), 3000);
+    return;
+  }
+  if(!snap.exists()){
+    // Пользователь есть в auth но нет в DB — создать запись
+    const email = user.email || '';
+    const username = email.includes('@') ? email.split('@')[0] : 'user'+user.uid.substring(0,6);
+    const newUser = {uid:user.uid, username, displayName:username, isAdmin:false, createdAt:Date.now(), lastSeen:Date.now(), status:'online'};
+    try { await db.ref('users/'+user.uid).set(newUser); } catch(e) {}
+    try { await db.ref('usernames/'+username).set(email||user.uid+'@rechat.app'); } catch(e) {}
+    me = newUser;
+  } else {
+    me = snap.val();
+    if(!me) { auth.signOut(); location.href='index.html'; return; }
+  }
 
   try {
     const banSnap = await db.ref('banned/'+me.username).get();
@@ -2278,6 +2296,7 @@ function checkAnnouncement(){
   });
 }
 function checkMaintenance(){
+  if(!me) return;
   db.ref('settings/maintenance').on('value', snap=>{
     if(snap.val()===true && !me.isAdmin){
       document.body.innerHTML=`
