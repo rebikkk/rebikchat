@@ -317,23 +317,16 @@
     }
   });
 
-  // ── Защита от брутфорса ──────────────────────────────────
-  const _loginAttempts = { count: 0, lastTime: 0, blockedUntil: 0 };
+  // ── Простой клиентский rate-limit для формы входа ──────────────────
+  const _loginAttempts = { count: 0, lastReset: Date.now() };
   function checkLoginRateLimit() {
     const now = Date.now();
-    if (now < _loginAttempts.blockedUntil) {
-      const secs = Math.ceil((_loginAttempts.blockedUntil - now) / 1000);
-      return `Слишком много попыток. Подожди ${secs} сек`;
-    }
-    if (now - _loginAttempts.lastTime > 60000) _loginAttempts.count = 0;
-    _loginAttempts.count++;
-    _loginAttempts.lastTime = now;
-    if (_loginAttempts.count >= 5) {
-      _loginAttempts.blockedUntil = now + 60000;
+    if (now - _loginAttempts.lastReset > 60000) {
       _loginAttempts.count = 0;
-      return 'Слишком много попыток. Подожди 60 сек';
+      _loginAttempts.lastReset = now;
     }
-    return null;
+    _loginAttempts.count++;
+    return _loginAttempts.count <= 5; // макс 5 попыток в минуту
   }
 
   async function login() {
@@ -344,9 +337,7 @@
 
     errEl.classList.remove('show');
     if (!username || !password) { showError(errEl, 'Заполни все поля'); return; }
-
-    const rlErr = checkLoginRateLimit();
-    if (rlErr) { showError(errEl, rlErr); return; }
+    if (!checkLoginRateLimit()) { showError(errEl, '⏳ Слишком много попыток. Подожди минуту'); return; }
 
     btn.disabled = true;
     btn.innerHTML = '<span class="loading-spinner"></span>Входим...';
@@ -388,10 +379,10 @@
     sucEl.classList.remove('show');
 
     if (!username || !displayName || !password || !password2) { showError(errEl, 'Заполни все поля'); return; }
+    const cleanDisplayName = displayName.replace(/[<>&"']/g, '').trim();
+    if (!cleanDisplayName) { showError(errEl, 'Недопустимые символы в имени'); return; }
     if (!/^[a-z0-9_]{3,20}$/.test(username)) { showError(errEl, 'Логин: только a-z, 0-9, _ (3-20 символов)'); return; }
-    if (/<[^>]*>/.test(displayName) || displayName.includes('&')) { showError(errEl, 'Имя содержит недопустимые символы'); return; }
     if (password.length < 6) { showError(errEl, 'Пароль минимум 6 символов'); return; }
-    if (password.length > 128) { showError(errEl, 'Пароль слишком длинный'); return; }
     if (password !== password2) { showError(errEl, 'Пароли не совпадают'); return; }
 
     // Запрещённые имена
@@ -420,7 +411,7 @@
         db.ref('users/' + uid).set({
           uid,
           username,
-          displayName,
+          displayName: cleanDisplayName,
           isAdmin,
           createdAt: Date.now(),
           lastSeen: Date.now(),
@@ -446,18 +437,14 @@
   }
 
   async function initDefaultChannels() {
-    // Создать дефолтные чаты/каналы при первой регистрации если их нет
-    try {
-      const snap = await db.ref('rooms').get();
-      if (!snap.exists()) {
-        const now = Date.now();
-        await db.ref('rooms').set({
-          'general': { type:'chat', name:'general', desc:'Общий чат', icon:'💬', mode:'public', createdBy:'system', createdAt:now, order:0, isPrivate:false, showSignature:false },
-          'random':  { type:'chat', name:'random',  desc:'Флуд и мемы', icon:'🎲', mode:'public', createdBy:'system', createdAt:now, order:1, isPrivate:false, showSignature:false },
-          'news':    { type:'channel', name:'news', desc:'Новости проекта', icon:'📰', mode:'readonly', createdBy:'system', createdAt:now, order:2, isPrivate:false, showSignature:false, recommended:true },
-        });
-      }
-    } catch(e) { /* не критично */ }
+    const snap = await db.ref('channels').get();
+    if (!snap.exists()) {
+      await db.ref('channels').set({
+        general: { name: 'general', description: 'Общий чат', icon: '💬', createdAt: Date.now(), order: 0 },
+        random: { name: 'random', description: 'Флуд и мемы', icon: '🎲', createdAt: Date.now(), order: 1 },
+        news: { name: 'news', description: 'Новости проекта', icon: '📰', createdAt: Date.now(), order: 2 },
+      });
+    }
   }
 
   function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
