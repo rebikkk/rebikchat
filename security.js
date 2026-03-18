@@ -1,40 +1,47 @@
 (function() {
   'use strict';
 
-  // ── Блок F12 и DevTools горячих клавиш ───
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F12') { e.preventDefault(); return false; }
-    if (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) {
-      e.preventDefault(); return false;
-    }
-    if (e.ctrlKey && e.key.toUpperCase() === 'U') {
-      e.preventDefault(); return false;
-    }
-    if (e.metaKey && e.altKey && e.key.toUpperCase() === 'I') {
-      e.preventDefault(); return false;
-    }
-  });
-
-  // ── Блок правой кнопки мыши ──────────────
-  document.addEventListener('contextmenu', function(e) {
-    if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
-    e.preventDefault();
-  });
-
-  // ── Анти-iframe ───────────────────────────
+  // ── Анти-iframe ───────────────────────────────────────
+  // Единственная реально полезная защита в этом файле
   if (window.self !== window.top) {
-    window.top.location = window.self.location;
+    try { window.top.location = window.self.location; } catch(e) {
+      document.body.innerHTML = '';
+    }
   }
 
-  // ── Детект DevTools по размеру окна ──────
-  setInterval(function() {
-    const w = window.outerWidth - window.innerWidth;
-    const h = window.outerHeight - window.innerHeight;
-    if (w > 160 || h > 160) {
-      document.querySelectorAll('input[type=password]').forEach(function(el) {
-        el.value = '';
-      });
+  // ── Автовыход при долгом бездействии (30 минут) ───────
+  var IDLE_TIMEOUT = 30 * 60 * 1000;
+  var _idleTimer = null;
+  function resetIdle() {
+    clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(function() {
+      // Только показать предупреждение - не разлогинивать принудительно
+      // чтобы не терять несохранённый ввод
+      var evt = new CustomEvent('rechat:idle');
+      document.dispatchEvent(evt);
+    }, IDLE_TIMEOUT);
+  }
+  ['mousedown','keydown','touchstart','scroll'].forEach(function(ev) {
+    document.addEventListener(ev, resetIdle, { passive: true });
+  });
+  resetIdle();
+
+  // ── Защита от paste очень длинных строк в поля ввода ──
+  document.addEventListener('paste', function(e) {
+    var target = e.target;
+    if (target.tagName !== 'TEXTAREA' && target.tagName !== 'INPUT') return;
+    var text = (e.clipboardData || window.clipboardData).getData('text');
+    if (text && text.length > 3000) {
+      e.preventDefault();
+      // Вставить первые 2000 символов
+      var truncated = text.substring(0, 2000);
+      var start = target.selectionStart;
+      var end = target.selectionEnd;
+      target.value = target.value.substring(0, start) + truncated + target.value.substring(end);
+      target.selectionStart = target.selectionEnd = start + truncated.length;
+      // Триггер события для обновления счётчика
+      target.dispatchEvent(new Event('input', { bubbles: true }));
     }
-  }, 1000);
+  });
 
 })();
