@@ -1005,7 +1005,7 @@ auth.onAuthStateChanged(async user => {
   });
 
   applyWallpaper(me.wallpaper||null);
-  renderSelf();
+  try { renderSelf(); } catch(e) {}
   try { checkAnnouncement(); } catch(e) {}
   try { checkMaintenance(); } catch(e) {}
   if(me.isAdmin){ $('adminBtn').classList.add('show'); $('logBtn').style.display='flex'; }
@@ -1019,9 +1019,11 @@ function renderSelf(){
   if(sIcon) sIcon.textContent=soundEnabled?'🔔':'🔕';
   if(sLabel) sLabel.textContent=soundEnabled?'Звук вкл':'Звук выкл';
   const av=$('selfAv');
-  av.innerHTML=(me.avatarData?`<img src="${me.avatarData}">`:me.displayName.charAt(0).toUpperCase())+'<div class="dot"></div>';
-  $('selfName').innerHTML=esc(me.displayName)+(me.verified?' <span style="color:var(--accent);font-size:12px">✅</span>':'')+(me.isAdmin?' <span style="font-size:11px;color:#c084fc">👑</span>':'');
-  $('selfTag').textContent='@'+me.username;
+  if(!me) return;
+  const dn = me.displayName||me.username||'?';
+  av.innerHTML=(me.avatarData&&me.avatarData.startsWith('data:')?`<img src="${me.avatarData}">`:dn.charAt(0).toUpperCase())+'<div class="dot"></div>';
+  $('selfName').innerHTML=esc(dn)+(me.verified?' <span style="color:var(--accent);font-size:12px">✅</span>':'')+(me.isAdmin?' <span style="font-size:11px;color:#c084fc">👑</span>':'');
+  $('selfTag').textContent='@'+(me.username||'');
 }
 function logout(){
   if(me) db.ref('users/'+me.uid).update({status:'offline',lastSeen:Date.now()});
