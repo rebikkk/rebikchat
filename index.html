@@ -337,12 +337,7 @@
 
       const email = snap.val();
       await auth.signInWithEmailAndPassword(email, password);
-      const banSnap = await db.ref('banned/' + username).get();
-      if (banSnap.exists()) {
-        showError(errEl, '🚫 Аккаунт заблокирован администратором');
-        await auth.signOut(); resetBtn(btn, 'Войти'); return;
-      }
-      // onAuthStateChanged перенаправит
+      // onAuthStateChanged перенаправит на chat.html
     } catch(e) {
       const msgs = {
         'auth/wrong-password': 'Неверный пароль',
@@ -373,7 +368,7 @@
 
     // Запрещённые имена
     const reserved = ['admin', 'system', 'bot', 'moderator'];
-    if (reserved.includes(username) && username !== ADMIN_USERNAME.toLowerCase()) {
+    if (reserved.includes(username)) {
       showError(errEl, 'Это имя зарезервировано'); return;
     }
 
@@ -389,8 +384,6 @@
       const fakeEmail = `${username}@rebikchat-user.com`;
       const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
       const uid = cred.user.uid;
-      const isAdmin = username === ADMIN_USERNAME.toLowerCase();
-
       // Сохраняем данные пользователя
       await Promise.all([
         db.ref('usernames/' + username).set(fakeEmail),
@@ -398,18 +391,12 @@
           uid,
           username,
           displayName,
-          isAdmin,
+          isAdmin: false,
           createdAt: Date.now(),
           lastSeen: Date.now(),
           status: 'online'
         })
       ]);
-
-      // Создаём дефолтные каналы если их нет
-      await initDefaultChannels();
-
-      // Отметить как нового пользователя для показа рекомендаций
-      await db.ref('users/' + uid + '/isNewUser').set(true);
 
       // Уже залогинен — onAuthStateChanged сделает redirect
     } catch(e) {
@@ -422,16 +409,7 @@
     }
   }
 
-  async function initDefaultChannels() {
-    const snap = await db.ref('channels').get();
-    if (!snap.exists()) {
-      await db.ref('channels').set({
-        general: { name: 'general', description: 'Общий чат', icon: '💬', createdAt: Date.now(), order: 0 },
-        random: { name: 'random', description: 'Флуд и мемы', icon: '🎲', createdAt: Date.now(), order: 1 },
-        news: { name: 'news', description: 'Новости проекта', icon: '📰', createdAt: Date.now(), order: 2 },
-      });
-    }
-  }
+
 
   function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
   function resetBtn(btn, text) { btn.disabled = false; btn.innerHTML = text; }
