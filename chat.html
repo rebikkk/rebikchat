@@ -1006,8 +1006,8 @@ auth.onAuthStateChanged(async user => {
 
   applyWallpaper(me.wallpaper||null);
   renderSelf();
-  checkAnnouncement();
-  checkMaintenance();
+  try { checkAnnouncement(); } catch(e) {}
+  try { checkMaintenance(); } catch(e) {}
   if(me.isAdmin){ $('adminBtn').classList.add('show'); $('logBtn').style.display='flex'; }
   loadAllUsers(); loadRooms(); loadDms(); listenLog();
 });
@@ -1562,7 +1562,7 @@ function onRoomTypeChange(){
   const t=$('roomType').value;
   $('roomTypeLabel').textContent=t==='channel'?'Режим канала':'Режим чата';
 }
-async function createRoom(){
+async function createRoom(){ if(!me){toast('Подожди, загрузка...','err');return;}
   const type=$('roomType').value;
   const name=$('roomName').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'');
   const desc=$('roomDesc').value.trim();
@@ -1757,7 +1757,7 @@ function closeProfilePage(){
 }
 
 // ══ MY PROFILE EDIT ══
-function openMyProfile(){
+function openMyProfile(){ if(!me){toast('Подожди, загрузка...','err');return;}
   $('epName').value=me.displayName; $('epBio').value=me.bio||'';
   $('epVerified').checked=me.verified||false;
   $('epVerifiedWrap').style.display=me.isAdmin?'block':'none';
@@ -2417,9 +2417,9 @@ async function openGallery(){
   }
   $('galleryModal').classList.add('show');
 }
-function openSettings(){ $('settingsModal').classList.add('show'); }
+function openSettings(){ if(!me){toast('Подожди, загрузка...','err');return;} $('settingsModal').classList.add('show'); }
 function openThemeSettings(){ $('themeModal').classList.add('show'); }
-function openPrivacySettings(){
+function openPrivacySettings(){ if(!me){toast('Подожди, загрузка...','err');return;}
   $('privHideLastSeen').checked=me.hideLastSeen||false;
   $('privDmMode').value=me.dmPrivacy||'all';
   $('privacyModal').classList.add('show');
