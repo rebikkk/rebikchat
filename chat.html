@@ -924,7 +924,7 @@ select.finput{cursor:pointer;}
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-<script src="firebase-config.js?v=5079"></script>
+<script src="firebase-config.js"></script>
 <script>
 // ══ UTILS ══
 const $ = id => document.getElementById(id);
@@ -2607,6 +2607,6 @@ document.addEventListener('DOMContentLoaded', () => {
 const urlJoin=new URLSearchParams(location.search).get('join');
 if(urlJoin){auth.onAuthStateChanged(u=>{if(u&&allRooms[urlJoin])openRoom(urlJoin);}); }
 </script>
-<script src="security.js?v=5079"></script>
+<script src="security.js"></script>
 </body>
 </html>
