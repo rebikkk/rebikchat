@@ -928,6 +928,10 @@ select.finput{cursor:pointer;}
 const $ = id => document.getElementById(id);
 const esc = t => { if(!t) return ''; const d=document.createElement('div'); d.appendChild(document.createTextNode(t)); return d.innerHTML; };
 const fmtTime = ts => { const d=new Date(ts); return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); };
+
+function openOverlay(id){ const el=$(id); if(el){ el.classList.add('show'); } }
+function closeOverlay(id){ const el=$(id); if(el){ el.classList.remove('show'); } }
+function openSettings(){ openOverlay('settingsModal'); }
 const fmtDate = ts => {
   const d=new Date(ts), t=new Date(), y=new Date(t); y.setDate(y.getDate()-1);
   if(d.toDateString()===t.toDateString()) return 'Сегодня';
