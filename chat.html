@@ -1408,7 +1408,7 @@ async function sendMsg(){
   if(curRoom&&!isDm) db.ref('typing/'+curRoom+'/'+me.uid).remove();
   playSound('msg');
   trackMsgSent();
-  addLog('lm',`${me.displayName} → ${isDm?'ЛС':('#'+(allRooms[curRoom]&&allRooms[curRoom].name||curRoom))}`);
+  addLog('lm',`${me.displayName} → ${isDm?(curDmOther&&curDmOther.displayName?'ЛС @'+curDmOther.displayName:'ЛС'):('#'+(allRooms[curRoom]&&allRooms[curRoom].name||curRoom))}: ${f.text.substring(0,100)}`);
 }
 
 function onInput(el){
@@ -2103,7 +2103,7 @@ function ins(e){const i=$('msgInput');const p=i.selectionStart;i.value=i.value.s
 document.addEventListener('click',e=>{if(!e.target.closest('.emo-btn')&&!e.target.closest('#emoPicker'))$('emoPicker').classList.remove('show');if(!e.target.closest('.emo-btn')&&!e.target.closest('#fmtPicker'))$('fmtPicker').style.display='none';});
 
 // ══ LOG ══
-function addLog(type,text){if(!me||!me.isAdmin)return;db.ref('logs').push({type,text,ts:Date.now(),by:me.username});}
+function addLog(type,text){if(!me)return;db.ref('logs').push({type,text,ts:Date.now(),by:me.username});}
 function listenLog(){
   if(!me||!me.isAdmin) return;
   db.ref('logs').limitToLast(80).on('value',snap=>{
